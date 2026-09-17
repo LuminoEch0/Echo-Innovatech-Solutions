@@ -168,13 +168,7 @@ resource "aws_security_group" "db_sg" {
     security_groups = [aws_security_group.vpn_sg.id]
   }
 
-  egress {
-    description = "No outbound required"
-    from_port   = 0
-    to_port     = 0
-    protocol    ="-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+ # No outbound rules are defined, so the database is cannot communicate with the outside world.
 
   tags = {
     Name = "db-sg"
