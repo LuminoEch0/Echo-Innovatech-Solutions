@@ -1,3 +1,9 @@
+# Random password for RDS — generated at apply time, never written in source code
+resource "random_password" "db" {
+  length  = 24
+  special = false
+}
+
 # 1. Group the private database subnets together for RDS
 resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "main-db-subnet-group"
@@ -21,7 +27,8 @@ resource "aws_db_instance" "postgres" {
   engine_version         = "17"
   instance_class         = "db.t3.micro"
   username               = "dbadmin"
-  manage_master_user_password  = true   # RDS creates & rotates the secret keys
+  password = random_password.db.result
+  # manage_master_user_password  = true   # RDS creates & rotates the secret keys
   # password               = "yourpass!"
   # to get password for the database, you can use the following command in your terminal:
   # aws secretsmanager list-secrets --query "SecretList[*].[Name,ARN]" --output json

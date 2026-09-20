@@ -1,7 +1,7 @@
 # 1. AWS Key Pair for Secure SSH Access to Management/VPN Host
 resource "aws_key_pair" "management_key" {
   key_name   = "management-ssh-key"
-  public_key = var.ssh_public_key # Defined in your variables.tf or terraform.tfvars
+  public_key = var.ssh_public_key
 }
 
 # 2. OpenVPN / Bastion Gateway in Dedicated Public VPN Subnet
@@ -47,7 +47,7 @@ resource "aws_instance" "vpn_server" {
 resource "aws_instance" "monitoring_server" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = "t3.micro"
-  subnet_id                   = aws_subnet.private_monitoring_1a.id
+  subnet_id                   = aws_subnet.private_monitoring.id
   vpc_security_group_ids      = [aws_security_group.monitoring_sg.id]
   associate_public_ip_address = false
 
@@ -62,7 +62,6 @@ resource "aws_instance" "monitoring_server" {
 
               mkdir -p /opt/monitoring
 
-              # Unquoted PROMCONFIG allows Terraform string interpolation
               cat <<PROMCONFIG > /opt/monitoring/prometheus.yml
               global:
                 scrape_interval: 15s
@@ -80,8 +79,8 @@ resource "aws_instance" "monitoring_server" {
                       filters:
                         - name: subnet-id
                           values:
-                            - '${aws_subnet.private_compute_1a.id}'
-                            - '${aws_subnet.private_compute_1b.id}'
+                            - '${aws_subnet.private_web_1a.id}'
+                            - '${aws_subnet.private_web_1b.id}'
                   relabel_configs:
                     # Label instances by their Name tag + AZ so dashboards can tell replicas apart
                     - source_labels: [__meta_ec2_tag_Name, __meta_ec2_availability_zone]

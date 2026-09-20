@@ -29,20 +29,88 @@ resource "aws_launch_template" "web_lt" {
               #!/bin/bash
               # Doesn't requre updating the system as Amazon Linux 2023 is already up-to-date
               dnf install -y docker
+              dnf install -y docker nmap-ncat
               systemctl start docker
               systemctl enable docker
 
-              mkdir -p /var/www/html
-              echo "<h1>Hello from Containerized Web Server on EC2!</h1>" > /var/www/html/index.html
+              # ── DB connection info injected by Terraform ──
+              # (endpoint comes from the RDS resource reference)
+              cat <<'APPENV' > /opt/app.env
+              DB_HOST=${aws_db_instance.postgres.address}
+              DB_PORT=5432
+              DB_NAME=appdb
+              DB_USER=dbadmin
+              DB_PASSWORD=${random_password.db.result}
+              APPENV
 
-              docker run -d \
-                --name web-app \
-                --restart always \
+              # ── The app: Flask + psycopg, serves data from Postgres ──
+              mkdir -p /opt/app
+              cat <<'PYAPP' > /opt/app/app.py
+              import os, psycopg2
+              from flask import Flask, jsonify
+              app = Flask(__name__)
+
+              def get_conn():
+                  return psycopg2.connect(
+                      host=os.environ["DB_HOST"], port=os.environ["DB_PORT"],
+                      dbname=os.environ["DB_NAME"], user=os.environ["DB_USER"],
+                      password=os.environ["DB_PASSWORD"])
+
+              def seed_if_empty():
+                  conn = get_conn()
+                  cur = conn.cursor()
+                  cur.execute("""CREATE TABLE IF NOT EXISTS team_members (
+                                 id serial primary key,
+                                 name text UNIQUE,
+                                 role text)""")
+                  cur.execute("""INSERT INTO team_members (name, role) VALUES
+                                 ('Alice', 'Backend Engineer'),
+                                 ('Bob', 'Frontend Engineer'),
+                                 ('Carol', 'DevOps Engineer')
+                                 ON CONFLICT (name) DO NOTHING""")
+                  conn.commit()
+                  conn.close()
+
+              seed_if_empty()   # runs once at container start
+
+              @app.route("/")
+              def index():
+                  conn = get_conn(); cur = conn.cursor()
+                  cur.execute("SELECT id, name, role FROM team_members ORDER BY id")
+                  rows = cur.fetchall(); conn.close()
+                  return "<h1>Team (live from RDS Postgres)</h1>" + "".join(
+                      f"<p>{r[0]}. <b>{r[1]}</b> — {r[2]}</p>" for r in rows)
+
+              @app.route("/api/members")
+              def api():
+                  conn = get_conn(); cur = conn.cursor()
+                  cur.execute("SELECT id, name, role FROM team_members ORDER BY id")
+                  rows = [{"id": r[0], "name": r[1], "role": r[2]} for r in cur.fetchall()]
+                  conn.close()
+                  return jsonify(rows)
+
+              app.run(host="0.0.0.0", port=80)
+              PYAPP
+
+              cat <<'REQS' > /opt/app/requirements.txt
+              flask
+              psycopg2-binary
+              REQS
+
+              # ── Wait for RDS to be fully available before first connect ──
+              until nc -z ${aws_db_instance.postgres.address} 5432 2>/dev/null; do
+                echo "Waiting for database..."; sleep 10
+              done
+
+              docker run -d --name web-app --restart always \
                 -p 80:80 \
-                -v /var/www/html:/usr/share/nginx/html:ro \
-                nginx:1.27-alpine
+                --env-file /opt/app.env \
+                -v /opt/app:/app:ro \
+                -w /app \
+                python:3.12-slim \
+                sh -c "pip install -r requirements.txt && python app.py"
 
-                # Node Exporter: host metrics (CPU, mem, disk, net) on 9100
+              # Node Exporter (keep this — monitoring depends on it)
               docker run -d \
                 --name node-exporter \
                 --restart always \
@@ -51,6 +119,7 @@ resource "aws_launch_template" "web_lt" {
                 prom/node-exporter:v1.8.2
               EOF
   )
+
 
   tag_specifications {
     resource_type = "instance"
