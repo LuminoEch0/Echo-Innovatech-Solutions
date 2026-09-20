@@ -18,7 +18,7 @@ resource "aws_db_instance" "postgres" {
   storage_type           = "gp2"
   db_name                = "appdb"
   engine                 = "postgres"
-  engine_version         = "17.11"
+  engine_version         = "17"
   instance_class         = "db.t3.micro"
   username               = "dbadmin"
   manage_master_user_password  = true   # RDS creates & rotates the secret keys
@@ -28,15 +28,14 @@ resource "aws_db_instance" "postgres" {
   # aws secretsmanager get-secret-value --secret-id "your-rds-secret-name" --query "SecretString" --output text | jq -r '.'
   parameter_group_name   = "default.postgres17"
   
-  db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.db_sg.id]
+  db_subnet_group_name        = aws_db_subnet_group.db_subnet_group.name
+  vpc_security_group_ids      = [aws_security_group.db_sg.id]
   
-  multi_az               = true
-  publicly_accessible    = false
-  skip_final_snapshot    = true
+  multi_az                    = true
+  publicly_accessible         = false
+  skip_final_snapshot         = true
 
   tags = {
     Name = "main-postgres-db"
   }
 }
-

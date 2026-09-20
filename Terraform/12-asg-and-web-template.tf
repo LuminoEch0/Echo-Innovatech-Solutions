@@ -21,11 +21,10 @@ resource "aws_launch_template" "web_lt" {
   instance_type = "t3.micro"
 
   network_interfaces {
-    associate_public_ip_address = false # Enforces deployment in private subnets
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.web_sg.id]
   }
 
-  # User Data script: Installs Docker and starts containerized NGINX web server
   user_data = base64encode(<<-EOF
               #!/bin/bash
               # Doesn't requre updating the system as Amazon Linux 2023 is already up-to-date
@@ -33,18 +32,23 @@ resource "aws_launch_template" "web_lt" {
               systemctl start docker
               systemctl enable docker
 
-              # Create app directory & index page
               mkdir -p /var/www/html
               echo "<h1>Hello from Containerized Web Server on EC2!</h1>" > /var/www/html/index.html
 
-              # Run NGINX container mapping host port 80 -> container port 80
-              # --restart always ensures Docker re-launches the container if it crashes or reboots
               docker run -d \
                 --name web-app \
                 --restart always \
                 -p 80:80 \
                 -v /var/www/html:/usr/share/nginx/html:ro \
                 nginx:1.27-alpine
+
+                # Node Exporter: host metrics (CPU, mem, disk, net) on 9100
+              docker run -d \
+                --name node-exporter \
+                --restart always \
+                --pid host \
+                --network host \
+                prom/node-exporter:v1.8.2
               EOF
   )
 
@@ -64,8 +68,8 @@ resource "aws_launch_template" "web_lt" {
 resource "aws_autoscaling_group" "web_asg" {
   name_prefix         = "web-asg-"
   vpc_zone_identifier = [
-    aws_subnet.private_compute_1a.id,
-    aws_subnet.private_compute_1b.id
+    aws_subnet.private_web_1a.id,
+    aws_subnet.private_web_1b.id
   ]
 
   target_group_arns = [aws_lb_target_group.web_tg.arn]

@@ -24,7 +24,7 @@ resource "aws_security_group" "alb_sg" {
     description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
-    protocol    ="-1"
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -59,7 +59,7 @@ resource "aws_security_group" "vpn_sg" {
     description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
-    protocol    ="-1"
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -90,19 +90,11 @@ resource "aws_security_group" "web_sg" {
     security_groups = [aws_security_group.vpn_sg.id]
   }
 
-  ingress {
-    description     = "Node Exporter metrics for Monitoring server"
-    from_port       = 9100
-    to_port         = 9100
-    protocol        = "tcp"
-    security_groups = [aws_security_group.monitoring_sg.id]
-  }
-
   egress {
     description = "Allow outbound to pull updates via NAT Gateway"
     from_port   = 0
     to_port     = 0
-    protocol    ="-1"
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -137,13 +129,24 @@ resource "aws_security_group" "monitoring_sg" {
     description = "Allow all outbound traffic to scrape targets"
     from_port   = 0
     to_port     = 0
-    protocol    ="-1"
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
     Name = "monitoring-sg"
   }
+}
+
+# Standalone rule to break circular dependency between web_sg and monitoring_sg
+resource "aws_security_group_rule" "web_node_exporter_from_monitoring" {
+  type                     = "ingress"
+  description              = "Node Exporter metrics for Monitoring server"
+  from_port                = 9100
+  to_port                  = 9100
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.web_sg.id
+  source_security_group_id = aws_security_group.monitoring_sg.id
 }
 
 # 5. PostgreSQL RDS Database Security Group
@@ -167,8 +170,6 @@ resource "aws_security_group" "db_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.vpn_sg.id]
   }
-
- # No outbound rules are defined, so the database is cannot communicate with the outside world.
 
   tags = {
     Name = "db-sg"
