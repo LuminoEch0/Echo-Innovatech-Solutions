@@ -57,6 +57,7 @@ resource "aws_launch_template" "web_lt" {
                       password=os.environ["DB_PASSWORD"])
 
               def seed_if_empty():
+                  """Creates table and idempotently inserts demo rows (race-safe)."""
                   conn = get_conn()
                   cur = conn.cursor()
                   cur.execute("""CREATE TABLE IF NOT EXISTS team_members (
@@ -71,7 +72,7 @@ resource "aws_launch_template" "web_lt" {
                   conn.commit()
                   conn.close()
 
-              seed_if_empty()   # runs once at container start
+              seed_if_empty()   # runs once at container start; safe if both instances race
 
               @app.route("/")
               def index():
@@ -89,7 +90,10 @@ resource "aws_launch_template" "web_lt" {
                   conn.close()
                   return jsonify(rows)
 
-              app.run(host="0.0.0.0", port=80)
+              # Only runs when executed directly (python app.py).
+              # Under gunicorn this block is skipped — gunicorn imports `app` instead.
+              if __name__ == "__main__":
+                  app.run(host="0.0.0.0", port=80)
               PYAPP
 
               cat <<'REQS' > /opt/app/requirements.txt
@@ -97,20 +101,41 @@ resource "aws_launch_template" "web_lt" {
               psycopg2-binary
               REQS
 
+              # ── NGINX config: reverse proxy on :80 → gunicorn on :8080 ──
+              cat <<'NGINXCONF' > /opt/app/nginx.conf
+              server {
+                  listen 80;
+                  location / {
+                      proxy_pass http://127.0.0.1:8080;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  }
+              }
+              NGINXCONF
+
               # ── Wait for RDS to be fully available before first connect ──
               until nc -z ${aws_db_instance.postgres.address} 5432 2>/dev/null; do
                 echo "Waiting for database..."; sleep 10
               done
 
-              docker run -d --name web-app --restart always \
-                -p 80:80 \
+              # ── App server: gunicorn (2 workers × 2 threads) on :8080 ──
+              docker run -d --name app-server --restart always \
+                --network host \
                 --env-file /opt/app.env \
                 -v /opt/app:/app:ro \
                 -w /app \
                 python:3.12-slim \
-                sh -c "pip install -r requirements.txt && python app.py"
+                sh -c "pip install -r requirements.txt gunicorn && \
+                       gunicorn -b 127.0.0.1:8080 --workers 2 --threads 2 app:app"
 
-              # Node Exporter (keep this — monitoring depends on it)
+              # ── Web server: NGINX on :80 in front of gunicorn (what the ALB talks to) ──
+              docker run -d --name nginx --restart always \
+                --network host \
+                -v /opt/app/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
+                nginx:1.27-alpine
+
+              # ── Node Exporter (keep this — monitoring depends on it) ──
               docker run -d \
                 --name node-exporter \
                 --restart always \
@@ -119,7 +144,6 @@ resource "aws_launch_template" "web_lt" {
                 prom/node-exporter:v1.8.2
               EOF
   )
-
 
   tag_specifications {
     resource_type = "instance"
