@@ -9,7 +9,7 @@ permissions:          # ← job-level token permissions (GitHub side)
 
 jobs:
   terraform:
-    runs-on: [self-hosted, vsphere-lab]
+    runs-on: [self-hosted, innovative-solution-runner]
     steps:
       - uses: actions/checkout@v4
 

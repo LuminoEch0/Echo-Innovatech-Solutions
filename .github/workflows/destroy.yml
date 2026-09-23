@@ -5,7 +5,7 @@ permissions:
   contents: read
 jobs:
   destroy:
-    runs-on: [self-hosted, vsphere-lab]
+    runs-on: [self-hosted, innovative-solution-runner]
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
