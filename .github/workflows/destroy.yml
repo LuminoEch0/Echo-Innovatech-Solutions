@@ -1,0 +1,18 @@
+name: destroy
+on: workflow_dispatch    # ← button in the Actions UI
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  destroy:
+    runs-on: [self-hosted, vsphere-lab]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
+          aws-region: eu-central-1
+      - run: |
+          cd /home/runner/tf/echo-innovatech
+          terraform init
+          terraform destroy -auto-approve

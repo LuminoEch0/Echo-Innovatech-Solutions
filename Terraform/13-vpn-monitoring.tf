@@ -20,7 +20,11 @@ resource "aws_instance" "vpn_server" {
               systemctl enable docker
 
               # Fetch public IP for OpenVPN client config generation
-              PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+               # Fetch public IP via IMDSv2 (token required on AL2023)
+              TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
+                -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+              PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+                http://169.254.169.254/latest/meta-data/public-ipv4)
               OVPN_DATA="ovpn-data"
 
               # Create volume and initialize OpenVPN container automatically

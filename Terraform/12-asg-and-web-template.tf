@@ -17,8 +17,9 @@ data "aws_ami" "amazon_linux_2023" {
 # 2. Launch Template: Installs Docker & runs containerized web app with auto-restart
 resource "aws_launch_template" "web_lt" {
   name_prefix   = "web-server-template-"
-  image_id      = data.aws_ami.amazon_linux_2023.id
+  image_id = "ami-06121aa3085b6f918"
   instance_type = "t3.micro"
+  key_name      = aws_key_pair.management_key.key_name  
 
   network_interfaces {
     associate_public_ip_address = false

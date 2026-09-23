@@ -1,0 +1,38 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+
+permissions:          # ← job-level token permissions (GitHub side)
+  id-token: write     # without this, GitHub refuses to mint the OIDC token
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: [self-hosted, vsphere-lab]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer   # ← Step 2's role ARN
+          aws-region: eu-central-1                                             # ← must match everything
+
+      - name: Who am I
+        run: aws sts get-caller-identity    # proof: shows assumed-role/app-github-deployer
+
+      # - name: Terraform
+      #   run: |
+      #     terraform init
+      #     terraform plan
+      #     terraform apply -auto-approve
+
+      - name: Terraform (persistent state dir)
+        run: |
+          mkdir -p /home/runner/tf/echo-innovatech
+          cd /home/runner/tf/echo-innovatech
+          rsync -a --exclude '.terraform' --exclude '*.tfstate*' $GITHUB_WORKSPACE/Terraform/ .
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
