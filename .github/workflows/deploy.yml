@@ -30,9 +30,9 @@ jobs:
 
       - name: Terraform (persistent state dir)
         run: |
-          mkdir -p /home/runner/tf/echo-innovatech
-          cd /home/runner/tf/echo-innovatech
-          rsync -a --exclude '.terraform' --exclude '*.tfstate*' $GITHUB_WORKSPACE/Terraform/ .
-          terraform init
+          mkdir -p /home/student/tf/echo-innovatech
+          cd /home/student/tf/echo-innovatech
+          rsync -a --exclude '.terraform' --exclude '*.tfstate*' "$GITHUB_WORKSPACE/Terraform/" .
+          terraform init -input=false
           terraform plan
           terraform apply -auto-approve
