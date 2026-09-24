@@ -57,6 +57,8 @@ resource "aws_instance" "monitoring_server" {
 
   # Required for Prometheus EC2 service discovery (DescribeInstances API calls)
   iam_instance_profile        = aws_iam_instance_profile.monitoring_profile.name
+  key_name                    = aws_key_pair.management_key.key_name
+
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
