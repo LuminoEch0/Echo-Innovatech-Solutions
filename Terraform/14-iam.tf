@@ -1,6 +1,6 @@
 # IAM role allowing the monitoring server to query EC2 for service discovery
 resource "aws_iam_role" "monitoring_role" {
-  name = "monitoring-server-role"
+  name = "app-monitoring-server-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -16,7 +16,7 @@ resource "aws_iam_role" "monitoring_role" {
 
 # Least-privilege policy: only what EC2 service discovery needs
 resource "aws_iam_role_policy" "ec2_discovery" {
-  name = "prometheus-ec2-discovery"
+  name = "app-prometheus-ec2-discovery"
   role = aws_iam_role.monitoring_role.id
 
   policy = jsonencode({
@@ -32,6 +32,6 @@ resource "aws_iam_role_policy" "ec2_discovery" {
 }
 
 resource "aws_iam_instance_profile" "monitoring_profile" {
-  name = "monitoring-server-profile"
+  name = "app-monitoring-server-profile"
   role = aws_iam_role.monitoring_role.name
 }

@@ -6,14 +6,14 @@ resource "random_password" "db" {
 
 # 1. Group the private database subnets together for RDS
 resource "aws_db_subnet_group" "db_subnet_group" {
-  name       = "main-db-subnet-group"
+  name       = "app-db-subnet-group"
   subnet_ids = [
     aws_subnet.private_db_1a.id,
     aws_subnet.private_db_1b.id
   ]
 
   tags = {
-    Name = "main-db-subnet-group"
+    Name = "app-db-subnet-group"
   }
 }
 
