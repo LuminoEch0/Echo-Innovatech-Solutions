@@ -62,7 +62,11 @@ resource "aws_instance" "monitoring_server" {
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              dnf install -y docker docker-compose-plugin
+              dnf install -y docker
+              sudo mkdir -p /usr/local/lib/docker/cli-plugins
+              sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              
               systemctl start docker
               systemctl enable docker
 
