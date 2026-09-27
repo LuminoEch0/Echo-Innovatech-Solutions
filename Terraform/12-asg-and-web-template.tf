@@ -186,15 +186,16 @@ resource "aws_autoscaling_group" "web_asg" {
 }
 
 # 4. Target Tracking Scaling Policy: Dynamically scales based on average CPU utilization
-resource "aws_autoscaling_policy" "cpu_target_tracking" {
-  name                   = "web-asg-cpu-target-tracking"
+resource "aws_autoscaling_policy" "request_count_target" {
+  name                   = "web-asg-request-count-target"
   autoscaling_group_name = aws_autoscaling_group.web_asg.name
   policy_type            = "TargetTrackingScaling"
 
   target_tracking_configuration {
     predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
+      predefined_metric_type = "ALBRequestCountPerTarget"
+      resource_label         = "${aws_lb.main_alb.arn_suffix}/${aws_lb_target_group.web_tg.arn_suffix}"
     }
-    target_value = 70.0
+    target_value = 30    # requests/sec per target — matches your measured ceiling!
   }
 }
