@@ -120,7 +120,7 @@ resource "aws_launch_template" "web_lt" {
                 echo "Waiting for database..."; sleep 10
               done
 
-              # ── App server: gunicorn (2 workers × 2 threads) on :8080 ──
+              # ── App server: gunicorn (4 workers × 4 threads) on :8080 ──
               docker run -d --name app-server --restart always \
                 --network host \
                 --env-file /opt/app.env \
@@ -128,7 +128,7 @@ resource "aws_launch_template" "web_lt" {
                 -w /app \
                 python:3.12-slim \
                 sh -c "pip install -r requirements.txt gunicorn && \
-                       gunicorn -b 127.0.0.1:8080 --workers 2 --threads 2 app:app"
+                       gunicorn -b 127.0.0.1:8080 --workers 4 --threads 4 app:app"
 
               # ── Web server: NGINX on :80 in front of gunicorn (what the ALB talks to) ──
               docker run -d --name nginx --restart always \
