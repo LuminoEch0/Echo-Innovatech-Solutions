@@ -17,7 +17,7 @@ data "aws_ami" "amazon_linux_2023" {
 # 2. Launch Template: Installs Docker & runs containerized web app with auto-restart
 resource "aws_launch_template" "web_lt" {
   name_prefix   = "web-server-template-"
-  image_id = "ami-06121aa3085b6f918"
+  image_id = data.aws_ami.amazon_linux_2023.id # This could be used in case of uunexisting updates from terraform apply "ami-06121aa3085b6f918"
   instance_type = "t3.micro"
   key_name      = aws_key_pair.management_key.key_name  
 
@@ -155,6 +155,7 @@ resource "aws_launch_template" "web_lt" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [image_id] # <--- Prevents rebuilds on new AMI releases!
   }
 }
 
