@@ -155,7 +155,6 @@ resource "aws_launch_template" "web_lt" {
 
   lifecycle {
     create_before_destroy = true
-    ignore_changes        = [image_id] # <--- Prevents rebuilds on new AMI releases!
   }
 }
 
@@ -177,15 +176,6 @@ resource "aws_autoscaling_group" "web_asg" {
   launch_template {
     id      = aws_launch_template.web_lt.id
     version = "$Latest"
-  }
-
-    # Automatically rolls out new instances sequentially when template changes:
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 50
-    }
-    triggers = ["launch_template"]
   }
 
   health_check_grace_period = 300
