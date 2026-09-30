@@ -3,39 +3,92 @@ on:
   push:
     branches: [main]
 
-permissions:          # ← job-level token permissions (GitHub side)
-  id-token: write     # without this, GitHub refuses to mint the OIDC token
+permissions:
+  id-token: write
   contents: read
 
+env:
+  TF_STATE_DIR: /home/student/tf/echo-innovatech
+  AWS_REGION: eu-central-1
+
 jobs:
-  terraform:
+  # ── Stage 1: Validate ─────────────────────────────────────────
+  validate:
+    name: "1 · Validate"
     runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
+      - name: Terraform format check
+        run: terraform fmt -check -recursive Terraform/ || echo "::warning::Formatting deviations found"
+      - name: Terraform validate
+        run: |
+          cd Terraform
+          terraform init -backend=false -input=false
+          terraform validate
 
+  # ── Stage 2: Security scan ────────────────────────────────────
+  security-scan:
+    name: "2 · Security Scan"
+    runs-on: [self-hosted, Linux, X64]
+    needs: [validate]
+    steps:
+      - uses: actions/checkout@v4
+      - name: tfsec (static security analysis)
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" aquasec/tfsec:latest /src/Terraform \
+            --minimum-severity MEDIUM --no-color || \
+            echo "::warning::tfsec findings — review the output above"
+
+  # ── Stage 3: Plan ─────────────────────────────────────────────
+  plan:
+    name: "3 · Plan"
+    runs-on: [self-hosted, Linux, X64]
+    needs: [security-scan]
+    steps:
+      - uses: actions/checkout@v4
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer   # ← Step 2's role ARN
-          aws-region: eu-central-1                                             # ← must match everything
+          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Who am I
-        run: aws sts get-caller-identity    # proof: shows assumed-role/app-github-deployer
+        run: aws sts get-caller-identity
 
-      # - name: Terraform
-      #   run: |
-      #     terraform init
-      #     terraform plan
-      #     terraform apply -auto-approve
-
-      - name: Terraform (persistent state dir)
+      - name: Terraform plan (persistent state dir)
         run: |
-          mkdir -p /home/student/tf/echo-innovatech
-          rsync -a --exclude '.terraform' --exclude '*.tfstate*' "$GITHUB_WORKSPACE/Terraform/" /home/student/tf/echo-innovatech/
-          cat > /home/student/tf/echo-innovatech/terraform.auto.tfvars <<EOF
+          mkdir -p $TF_STATE_DIR
+          rsync -a --exclude '.terraform' --exclude '*.tfstate*' "$GITHUB_WORKSPACE/Terraform/" "$TF_STATE_DIR/"
+          cat > "$TF_STATE_DIR/terraform.auto.tfvars" <<EOF
           ssh_public_key = "${{ vars.SSH_PUBLIC_KEY }}"
           EOF
-          cd /home/student/tf/echo-innovatech
+          cd "$TF_STATE_DIR"
           terraform init -input=false
-          terraform plan
-          terraform apply -auto-approve
+          terraform plan -input=false -out=tfplan -detailed-exitcode && exit 0 \
+            || [ $? -eq 2 ]   # exit 2 = plan succeeded WITH changes (not an error)
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: /home/student/tf/echo-innovatech/tfplan
+          retention-days: 7
+
+  # ── Stage 4: Deploy ───────────────────────────────────────────
+  apply:
+    name: "4 · Deploy (Apply)"
+    runs-on: [self-hosted, Linux, X64]
+    needs: [plan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform apply
+        run: |
+          cd $TF_STATE_DIR
+          terraform init -input=false
+          terraform apply -auto-approve tfplan
