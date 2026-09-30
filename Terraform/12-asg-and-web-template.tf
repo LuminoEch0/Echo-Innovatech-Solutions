@@ -185,7 +185,7 @@ resource "aws_autoscaling_group" "web_asg" {
     preferences {
       min_healthy_percentage = 50
     }
-    triggers = aws_launch_template.web_lt.id
+    triggers = ["launch_template"]
   }
 
   health_check_grace_period = 300
