@@ -80,7 +80,7 @@ resource "aws_launch_template" "web_lt" {
                   conn = get_conn(); cur = conn.cursor()
                   cur.execute("SELECT id, name, role FROM team_members ORDER BY id")
                   rows = cur.fetchall(); conn.close()
-                  return "<h1>Team (live from RDS Postgres)</h1>" + "".join(
+                  return "Hello from the Demo Side. This is to show that the agent works correctly.<br><br>" + "".join(
                       f"<p>{r[0]}. <b>{r[1]}</b> — {r[2]}</p>" for r in rows)
 
               @app.route("/api/members")
