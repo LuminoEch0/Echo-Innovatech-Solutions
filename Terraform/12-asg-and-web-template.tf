@@ -179,6 +179,15 @@ resource "aws_autoscaling_group" "web_asg" {
     version = "$Latest"
   }
 
+    # Automatically rolls out new instances sequentially when template changes:
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 50
+    }
+    triggers = aws_launch_template.web_lt.id
+  }
+
   health_check_grace_period = 300
 
   lifecycle {
