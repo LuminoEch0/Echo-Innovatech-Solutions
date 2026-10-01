@@ -215,3 +215,4 @@ resource "aws_autoscaling_policy" "request_count_target" {
     target_value = 30    # requests/sec per target — matches your measured ceiling!
   }
 }
+
