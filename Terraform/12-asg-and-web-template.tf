@@ -81,7 +81,7 @@ resource "aws_launch_template" "web_lt" {
                   cur.execute("SELECT id, name, role FROM team_members ORDER BY id")
                   rows = cur.fetchall(); conn.close()
                   # Hello from the Demo Side. This is to show that the agent works correctly.<br><br>
-                  return "The following are the team members listed below:" + "".join(
+                  return "This is to show that the agent works correctly.<br><br>" + "".join(
                       f"<p>{r[0]}. <b>{r[1]}</b> — {r[2]}</p>" for r in rows)
 
               @app.route("/api/members")
