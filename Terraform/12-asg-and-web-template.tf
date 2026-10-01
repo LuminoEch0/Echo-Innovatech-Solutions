@@ -176,7 +176,22 @@ resource "aws_autoscaling_group" "web_asg" {
 
   launch_template {
     id      = aws_launch_template.web_lt.id
-    version = "$Latest"
+    version = aws_launch_template.web_lt.latest_version
+  }
+
+    instance_refresh {
+    strategy = "Rolling"
+    
+    preferences {
+      # 100% means it will spin up 2 new instances first before terminating the 2 old ones (Zero Downtime)
+      min_healthy_percentage = 100 
+      
+      # How long to wait (seconds) for Docker, Nginx, and Python to stand up and pass target group checks
+      instance_warmup        = 300 
+    }
+
+    # Automatically starts a rolling replacement whenever the launch template changes
+    triggers = ["launch_template"] 
   }
 
   health_check_grace_period = 300
