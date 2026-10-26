@@ -8,11 +8,9 @@ permissions:
   contents: read
 
 env:
-  TF_STATE_DIR: /home/student/tf/echo-innovatech
   AWS_REGION: eu-central-1
 
 jobs:
-  # ── Stage 1: Validate ─────────────────────────────────────────
   validate:
     name: "1 · Validate"
     runs-on: [self-hosted, Linux, X64]
@@ -26,7 +24,6 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
-  # ── Stage 2: Security scan ────────────────────────────────────
   security-scan:
     name: "2 · Security Scan"
     runs-on: [self-hosted, Linux, X64]
@@ -39,56 +36,42 @@ jobs:
             --minimum-severity MEDIUM --no-color || \
             echo "::warning::tfsec findings — review the output above"
 
-  # ── Stage 3: Plan ─────────────────────────────────────────────
   plan:
     name: "3 · Plan"
     runs-on: [self-hosted, Linux, X64]
     needs: [security-scan]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Who am I
-        run: aws sts get-caller-identity
-
-      - name: Terraform plan (persistent state dir)
+      - name: Terraform plan
         run: |
-          mkdir -p $TF_STATE_DIR
-          rsync -a --exclude '.terraform' --exclude '*.tfstate*' "$GITHUB_WORKSPACE/Terraform/" "$TF_STATE_DIR/"
-          cat > "$TF_STATE_DIR/terraform.auto.tfvars" <<EOF
+          cd Terraform
+          cat > terraform.auto.tfvars <<EOF
           ssh_public_key = "${{ vars.SSH_PUBLIC_KEY }}"
           EOF
-          cd "$TF_STATE_DIR"
           terraform init -input=false
           terraform plan -input=false -out=tfplan -detailed-exitcode && exit 0 \
-            || [ $? -eq 2 ]   # exit 2 = plan succeeded WITH changes (not an error)
+            || [ $? -eq 2 ]
+      - uses: actions/upload-artifact@v4
+        with: { name: tfplan, path: Terraform/tfplan, retention-days: 7 }
 
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: /home/student/tf/echo-innovatech/tfplan
-          retention-days: 7
-
-  # ── Stage 4: Deploy ───────────────────────────────────────────
   apply:
     name: "4 · Deploy (Apply)"
     runs-on: [self-hosted, Linux, X64]
     needs: [plan]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
           aws-region: ${{ env.AWS_REGION }}
-
+      - uses: actions/download-artifact@v4
+        with: { name: tfplan, path: Terraform }
       - name: Terraform apply
         run: |
-          cd $TF_STATE_DIR
+          cd Terraform
           terraform init -input=false
           terraform apply -auto-approve tfplan
