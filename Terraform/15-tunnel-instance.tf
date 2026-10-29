@@ -32,7 +32,7 @@ resource "aws_instance" "tunnel" {
     net.ipv4.conf.all.accept_redirects = 0
     net.ipv4.conf.all.send_redirects = 0
     SYSCTL
-    sysctl --syste
+    sysctl --system
 
     # strongSwan: site-to-site responder
     cat <<'IPSECCONF' > /etc/strongswan/ipsec.conf
@@ -99,27 +99,27 @@ resource "aws_instance" "tunnel" {
   tags = { Name = "soar-tunnel" }
 }
 
-# resource "aws_eip_association" "tunnel" {
-#   instance_id   = aws_instance.tunnel.id
-#   allocation_id = data.aws_eip.tunnel.id
-# }
+resource "aws_eip_association" "tunnel" {
+  instance_id   = aws_instance.tunnel.id
+  allocation_id = data.aws_eip.tunnel.id
+}
 
-# # 4. Route: monitoring/web subnets reach the lab via the tunnel
-# resource "aws_route" "to_onprem" {
-#   route_table_id         = aws_route_table.private_rt.id
-#   destination_cidr_block = var.onprem_cidr
-#   network_interface_id   = aws_instance.tunnel.primary_network_interface_id
-# }
+# 4. Route: monitoring/web subnets reach the lab via the tunnel
+resource "aws_route" "to_onprem" {
+  route_table_id         = aws_route_table.private_rt.id
+  destination_cidr_block = var.onprem_cidr
+  network_interface_id   = aws_instance.tunnel.primary_network_interface_id
+}
 
-# # 5. VPC DNS goes through dnsmasq first (on-prem zone), Amazon
-# #    resolver as fallback so a down tunnel never breaks VPC DNS
-# resource "aws_vpc_dhcp_options" "main" {
-#   domain_name         = "${var.aws_region}.compute.internal"
-#   domain_name_servers = [aws_instance.tunnel.private_ip, "AmazonProvidedDNS"]
-#   tags = { Name = "main-dhcp-options" }
-# }
+# 5. VPC DNS goes through dnsmasq first (on-prem zone), Amazon
+#    resolver as fallback so a down tunnel never breaks VPC DNS
+resource "aws_vpc_dhcp_options" "main" {
+  domain_name         = "${var.aws_region}.compute.internal"
+  domain_name_servers = [aws_instance.tunnel.private_ip, "AmazonProvidedDNS"]
+  tags = { Name = "main-dhcp-options" }
+}
 
-# resource "aws_vpc_dhcp_options_association" "main" {
-#   vpc_id          = aws_vpc.main.id
-#   dhcp_options_id = aws_vpc_dhcp_options.main.id
-# }
+resource "aws_vpc_dhcp_options_association" "main" {
+  vpc_id          = aws_vpc.main.id
+  dhcp_options_id = aws_vpc_dhcp_options.main.id
+}
