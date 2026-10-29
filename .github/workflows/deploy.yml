@@ -51,9 +51,11 @@ jobs:
           cd Terraform
           cat > terraform.auto.tfvars <<EOF
           ssh_public_key = "${{ vars.SSH_PUBLIC_KEY }}"
+          tunnel_eip_allocation_id = "${{ vars.TUNNEL_EIP_ALLOCATION_ID }}"
+          tunnel_private_ip = "${{ vars.TUNNEL_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          terraform plan -input=false -out=tfplan -detailed-exitcode && exit 0 \
+          terraform plan -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
             || [ $? -eq 2 ]
       - uses: actions/upload-artifact@v4
         with: { name: tfplan, path: Terraform/tfplan, retention-days: 7 }

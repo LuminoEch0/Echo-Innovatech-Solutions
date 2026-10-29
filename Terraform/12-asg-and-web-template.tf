@@ -215,4 +215,27 @@ resource "aws_autoscaling_policy" "request_count_target" {
     target_value = 30    # requests/sec per target — matches your measured ceiling!
   }
 }
+# Generate a local private key
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
 
+# Generate a self-signed certificate matching your ALB or project namespace
+resource "tls_self_signed_cert" "example" {
+  private_key_pem = tls_private_key.example.private_key_pem
+
+  # Subject info (can be generalized or match a dummy domain name)
+  subject {
+    common_name  = "cs2.internal"
+    organization = "Innovatech Solutions"
+  }
+
+  validity_period_hours = 720 # 30 days (matches your retention cycle)
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+  ]
+}

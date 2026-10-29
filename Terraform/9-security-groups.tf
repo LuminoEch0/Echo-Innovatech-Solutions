@@ -133,6 +133,22 @@ resource "aws_security_group" "monitoring_sg" {
     security_groups = [aws_security_group.vpn_sg.id]
   }
 
+    ingress {
+    description     = "Prometheus remote-write from tunnel (Alloy push)"
+    from_port       = 9090
+    to_port         = 9090
+    protocol        = "tcp"
+    security_groups = [aws_security_group.tunnel_sg.id]
+  }
+
+  ingress {
+    description     = "Prometheus remote-write from on-prem runner via tunnel"
+    from_port       = 9090
+    to_port         = 9090
+    protocol        = "tcp"
+    cidr_blocks     = [var.onprem_cidr]
+  }
+
   egress {
     description = "Allow all outbound traffic to scrape targets"
     from_port   = 0
@@ -182,4 +198,45 @@ resource "aws_security_group" "db_sg" {
   tags = {
     Name = "db-sg"
   }
+}
+
+# 6. SG: IPsec from any peer (auth is the PSK), admin via OpenVPN only
+resource "aws_security_group" "tunnel_sg" {
+  name        = "tunnel-security-group"
+  description = "SOAR tunnel: IPsec responder + DNS bridge"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "IKEv2 key exchange (PSK-protected)"
+    from_port   = 500
+    to_port     = 500
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "IPsec NAT-T — pfSense peer is behind NAT"
+    from_port   = 4500
+    to_port     = 4500
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description     = "SSH via OpenVPN management plane only"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.vpn_sg.id]
+  }
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "tunnel-sg" }
 }

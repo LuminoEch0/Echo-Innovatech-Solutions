@@ -97,6 +97,41 @@ resource "aws_instance" "monitoring_server" {
                       separator: '-'
                       target_label: instance
               PROMCONFIG
+                            
+                            # Grafana provisioning from repo — restored on every build
+              mkdir -p /opt/grafana/provisioning/datasources \
+                      /opt/grafana/provisioning/dashboards \
+                      /opt/grafana/provisioning/alerting \
+                      /var/lib/grafana/dashboards
+
+              cat <<'DS' > /opt/grafana/provisioning/datasources/prometheus.yml
+              apiVersion: 1
+              datasources:
+                - name: Prometheus
+                  type: prometheus
+                  uid: efzp33czx74lce
+                  access: proxy
+                  url: http://prometheus:9090
+                  isDefault: true
+              DS
+
+              cat <<'DBPROV' > /opt/grafana/provisioning/dashboards/provider.yml
+              apiVersion: 1
+              providers:
+                - name: default
+                  type: file
+                  updateIntervalSeconds: 30
+                  options:
+                    path: /var/lib/grafana/dashboards
+              DBPROV
+
+              cat > /var/lib/grafana/dashboards/legacy-dashboard.json <<'DASHBOARD'
+              ${replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce")}
+              DASHBOARD
+
+              cat > /opt/grafana/provisioning/alerting/legacy-rules.yaml <<'RULES'
+              ${file("${path.module}/Grafana/legacy-rules.yaml")}
+              RULES
 
               # Generate Docker Compose stack with persistent storage volumes
               cat <<'DOCKERCOMPOSE' > /opt/monitoring/docker-compose.yml
@@ -112,6 +147,9 @@ resource "aws_instance" "monitoring_server" {
                   volumes:
                     - /opt/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
                     - prometheus_data:/prometheus
+                  command:
+                    - '--config.file=/etc/prometheus/prometheus.yml'
+                    - '--web.enable-remote-write-receiver'
 
                 grafana:
                   image: grafana/grafana:11.1.0
@@ -123,6 +161,8 @@ resource "aws_instance" "monitoring_server" {
                     - GF_SECURITY_ADMIN_PASSWORD=admin
                   volumes:
                     - grafana_data:/var/lib/grafana
+                    - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
+                    - /var/lib/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
               volumes:
                 prometheus_data:
