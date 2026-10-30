@@ -62,7 +62,7 @@ conn onprem
     fragmentation=yes
 IPSEC_EOF
 cat > /etc/ipsec.d/onprem.secrets <<PSK_EOF
-%any %any : PSK "${tunnel_psk}"
+%any %any : PSK "${var.tunnel_psk}"
 PSK_EOF
 chmod 600 /etc/ipsec.d/onprem.secrets
 systemctl enable --now ipsec
