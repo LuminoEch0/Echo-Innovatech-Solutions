@@ -28,34 +28,4 @@ jobs:
           monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          destroy_args=(
-            -auto-approve
-            -no-color
-            -lock-timeout=5m
-            -var="tunnel_psk=$TUNNEL_PSK"
-            -var="discord_webhook_url=$DISCORD_WEBHOOK_URL"
-          )
-
-          set +e
-          destroy_output=$(terraform destroy "${destroy_args[@]}" 2>&1)
-          destroy_status=$?
-          set -e
-          echo "$destroy_output"
-
-          if [ "$destroy_status" -eq 0 ]; then
-            exit 0
-          fi
-
-          if ! grep -q "Error acquiring the state lock" <<<"$destroy_output"; then
-            exit "$destroy_status"
-          fi
-
-          lock_id=$(awk '/^[[:space:]]*ID:[[:space:]]/ { print $2; exit }' <<<"$destroy_output")
-          if [ -z "$lock_id" ]; then
-            echo "::error::Terraform reported a state lock, but the lock ID could not be parsed."
-            exit "$destroy_status"
-          fi
-
-          echo "::warning::Detected stale Terraform lock ($lock_id); force-unlocking and retrying destroy once."
-          terraform force-unlock -force "$lock_id"
-          terraform destroy "${destroy_args[@]}"
+          terraform destroy -auto-approve -var="tunnel_psk=$TUNNEL_PSK" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL"
