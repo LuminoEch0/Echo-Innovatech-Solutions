@@ -138,6 +138,14 @@ resource "aws_instance" "monitoring_server" {
                         url: "${var.discord_webhook_url}"
               CP_EOF
 
+              cat > /etc/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
+              apiVersion: 1
+              policies:
+                - orgId: 1
+                  receiver: Discord-alerts
+                  group_by: ['alertname']
+              POLICIES_EOF
+
               echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
                 > /var/lib/grafana/dashboards/legacy-dashboard.json
 
