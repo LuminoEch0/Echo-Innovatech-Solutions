@@ -9,6 +9,7 @@ permissions:
 
 env:
   AWS_REGION: eu-central-1
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   TUNNEL_PSK: ${{ secrets.TUNNEL_PSK }}
 
 jobs:
@@ -57,7 +58,7 @@ jobs:
           monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          terraform plan -replace="aws_route.to_onprem" -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
+          terraform plan -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
             || [ $? -eq 2 ]
       - uses: actions/upload-artifact@v4
         with: { name: tfplan, path: Terraform/tfplan, retention-days: 7 }
@@ -78,4 +79,4 @@ jobs:
         run: |
           cd Terraform
           terraform init -input=false
-          terraform apply -replace="aws_route.to_onprem" -auto-approve tfplan
+          terraform apply -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan

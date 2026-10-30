@@ -43,3 +43,8 @@ variable "monitoring_private_ip" {
   type        = string
   description = "Fixed private IP address for the monitoring server"
 }
+
+variable "discord_webhook_url" {
+  type      = string
+  sensitive = true
+}

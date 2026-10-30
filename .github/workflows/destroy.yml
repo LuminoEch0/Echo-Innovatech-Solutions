@@ -7,6 +7,7 @@ permissions:
 env:
   AWS_REGION: eu-central-1
   TUNNEL_PSK: ${{ secrets.TUNNEL_PSK }}
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
 jobs:
   destroy:
@@ -27,4 +28,4 @@ jobs:
           monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          terraform destroy -auto-approve -var="tunnel_psk=$TUNNEL_PSK"
+          terraform destroy -auto-approve -var="tunnel_psk=$TUNNEL_PSK" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL"

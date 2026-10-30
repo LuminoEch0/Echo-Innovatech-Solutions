@@ -126,6 +126,18 @@ resource "aws_instance" "monitoring_server" {
                     path: /var/lib/grafana/dashboards
               DBPROV
 
+              mkdir -p /etc/grafana/provisioning/{datasources,dashboards,alerting,plugins,notifiers}
+              cat > /etc/grafana/provisioning/alerting/contactPoints.yml <<CP_EOF
+              apiVersion: 1
+              contactPoints:
+                - orgId: 1
+                  name: Discord-alerts
+                  receivers:
+                    - type: discord
+                      settings:
+                        url: "${var.discord_webhook_url}"
+              CP_EOF
+
               echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
                 > /var/lib/grafana/dashboards/legacy-dashboard.json
 
