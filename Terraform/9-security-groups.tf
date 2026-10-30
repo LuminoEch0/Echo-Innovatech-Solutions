@@ -122,7 +122,7 @@ resource "aws_security_group" "monitoring_sg" {
     from_port       = 3000
     to_port         = 3000
     protocol        = "tcp"
-    security_groups = [aws_security_group.vpn_sg.id]
+    security_groups = [aws_security_group.tunnel_sg.id]
   }
 
   ingress {
