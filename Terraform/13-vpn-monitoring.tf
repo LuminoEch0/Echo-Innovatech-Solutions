@@ -103,6 +103,8 @@ resource "aws_instance" "monitoring_server" {
               mkdir -p /opt/grafana/provisioning/datasources \
                       /opt/grafana/provisioning/dashboards \
                       /opt/grafana/provisioning/alerting \
+                      /opt/grafana/provisioning/plugins \
+                      /opt/grafana/provisioning/notifiers \
                       /var/lib/grafana/dashboards
 
               cat <<'DS' > /opt/grafana/provisioning/datasources/prometheus.yml
@@ -126,8 +128,7 @@ resource "aws_instance" "monitoring_server" {
                     path: /var/lib/grafana/dashboards
               DBPROV
 
-              mkdir -p /etc/grafana/provisioning/{datasources,dashboards,alerting,plugins,notifiers}
-              cat > /etc/grafana/provisioning/alerting/contactPoints.yml <<CP_EOF
+              cat > /opt/grafana/provisioning/alerting/contactPoints.yml <<CP_EOF
               apiVersion: 1
               contactPoints:
                 - orgId: 1
@@ -138,7 +139,7 @@ resource "aws_instance" "monitoring_server" {
                         url: "${var.discord_webhook_url}"
               CP_EOF
 
-              cat > /etc/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
+              cat > /opt/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
               apiVersion: 1
               policies:
                 - orgId: 1

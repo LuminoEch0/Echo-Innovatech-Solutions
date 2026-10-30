@@ -79,4 +79,4 @@ jobs:
         run: |
           cd Terraform
           terraform init -input=false
-          terraform apply -replace="aws_route.to_onprem" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan 
+          terraform apply -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan 
