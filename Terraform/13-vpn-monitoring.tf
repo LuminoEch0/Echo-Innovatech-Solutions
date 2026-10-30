@@ -134,7 +134,9 @@ resource "aws_instance" "monitoring_server" {
                 - orgId: 1
                   name: Discord-alerts
                   receivers:
-                    - type: discord
+                    - uid: discord-alerts-001
+                      type: discord
+                      disableResolveMessage: false
                       settings:
                         url: "${var.discord_webhook_url}"
               CP_EOF
