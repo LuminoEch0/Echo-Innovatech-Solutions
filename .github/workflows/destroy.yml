@@ -4,6 +4,10 @@ on: workflow_dispatch
 permissions:
   id-token: write
   contents: read
+env:
+  AWS_REGION: eu-central-1
+  TUNNEL_PSK: ${{ secrets.TUNNEL_PSK }}
+
 jobs:
   destroy:
     runs-on: [self-hosted, Linux, X64]
@@ -20,6 +24,7 @@ jobs:
           ssh_public_key = "${{ vars.SSH_PUBLIC_KEY }}"
           tunnel_eip_allocation_id = "${{ vars.TUNNEL_EIP_ALLOCATION_ID }}"
           tunnel_private_ip = "${{ vars.TUNNEL_PRIVATE_IP }}"
+          monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          terraform destroy -auto-approve
+          terraform destroy -auto-approve -var="tunnel_psk=$TUNNEL_PSK"

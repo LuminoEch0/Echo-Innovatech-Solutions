@@ -16,12 +16,12 @@ variable "tunnel_psk" {
 
 variable "onprem_cidr" {
   type    = string
-  default = "192.168.121.0/24"
+  default = "172.16.2.0/24"
 }
 
 variable "onprem_dns" {
   type    = string
-  default = "192.168.121.120"
+  default = "172.16.2.1"
 }
 
 variable "onprem_domain" {
@@ -37,4 +37,9 @@ variable "tunnel_eip_allocation_id" {
 variable "tunnel_private_ip" {
   type        = string
   description = "Allocation of the private IP address for the tunnel and dnsmasq server"
+}
+
+variable "monitoring_private_ip" {
+  type        = string
+  description = "Fixed private IP address for the monitoring server"
 }

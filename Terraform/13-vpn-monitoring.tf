@@ -52,6 +52,7 @@ resource "aws_instance" "monitoring_server" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.private_monitoring.id
+  private_ip                  = var.monitoring_private_ip
   vpc_security_group_ids      = [aws_security_group.monitoring_sg.id]
   associate_public_ip_address = false
 
@@ -125,13 +126,11 @@ resource "aws_instance" "monitoring_server" {
                     path: /var/lib/grafana/dashboards
               DBPROV
 
-              cat > /var/lib/grafana/dashboards/legacy-dashboard.json <<'DASHBOARD'
-              ${replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce")}
-              DASHBOARD
+              echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
+                > /var/lib/grafana/dashboards/legacy-dashboard.json
 
-              cat > /opt/grafana/provisioning/alerting/legacy-rules.yaml <<'RULES'
-              ${file("${path.module}/Grafana/legacy-rules.yaml")}
-              RULES
+              echo '${base64gzip(file("${path.module}/Grafana/legacy-rules.yaml"))}' | base64 -d | gunzip \
+                > /opt/grafana/provisioning/alerting/legacy-rules.yaml
 
               # Generate Docker Compose stack with persistent storage volumes
               cat <<'DOCKERCOMPOSE' > /opt/monitoring/docker-compose.yml
@@ -178,4 +177,3 @@ resource "aws_instance" "monitoring_server" {
     Name = "private-monitoring-server"
   }
 }
-

@@ -215,11 +215,27 @@ resource "aws_security_group" "tunnel_sg" {
   }
 
   ingress {
-    description = "IPsec NAT-T - pfSense peer is behind NAT"
+    description = "IPsec NAT-T — pfSense peer is behind NAT"
     from_port   = 4500
     to_port     = 4500
     protocol    = "udp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "All traffic from the lab via IPsec (transit + DNS to dnsmasq)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.onprem_cidr]
+  }
+
+  ingress {
+    description = "All traffic from the VPC (transit + DNS to dnsmasq)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   ingress {
