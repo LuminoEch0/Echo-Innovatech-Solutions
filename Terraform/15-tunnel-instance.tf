@@ -24,41 +24,51 @@ resource "aws_instance" "tunnel" {
 
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    dnf install -y strongswan dnsmasq docker
-    systemctl enable --now docker strongswan dnsmasq
+    dnf install -y libreswan dnsmasq
+    dnf install -y docker
+    systemctl enable --now docker  dnsmasq
+    ipsec initnss >/dev/null 2>&1 || true
+    systemctl enable --now ipsec
 
     cat <<'SYSCTL' > /etc/sysctl.d/99-ipsec.conf
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.accept_redirects = 0
     net.ipv4.conf.all.send_redirects = 0
+    net.ipv4.conf.all.rp_filter = 0
+    net.ipv4.conf.default.rp_filter = 0
     SYSCTL
     sysctl --system
 
-    # strongSwan: site-to-site responder
-    cat <<'IPSECCONF' > /etc/strongswan/ipsec.conf
-    config setup
-        uniqueids = no
+    mkdir -p /etc/ipsec.d
+    grep -q 'ipsec.d/\*.conf' /etc/ipsec.conf || echo 'include /etc/ipsec.d/*.conf' >> /etc/ipsec.conf
+    grep -q 'ipsec.d/\*.secrets' /etc/ipsec.secrets || echo 'include /etc/ipsec.d/*.secrets' >> /etc/ipsec.secrets
+    cat > /etc/ipsec.d/onprem.conf <<'IPSEC_EOF'
+    conn onprem
+        type=tunnel
+        auto=add
+        authby=secret
+        left=%defaultroute
+        leftid=${data.aws_eip.tunnel.public_ip}
+        leftsubnet=10.0.0.0/16
+        right=%any
+        rightid=%any
+        rightsubnet=172.16.2.0/24
+        ikev2=insist
+        ike=aes256-sha2_256;dh14
+        esp=aes256-sha2_256;dh14
+        ikelifetime=8h
+        salifetime=1h
+        dpddelay=30
+        dpdtimeout=120
+        dpdaction=clear
+        encapsulation=yes
+        fragmentation=yes
+    IPSEC_EOF
 
-    conn soar-tunnel
-        type        = tunnel
-        keyexchange = ikev2
-        left        = %defaultroute
-        leftid      = ${data.aws_eip.tunnel.public_ip}
-        leftsubnet  = 10.0.0.0/16
-        right       = %any
-        rightsubnet = ${var.onprem_cidr}
-        authby      = psk
-        ike         = aes256-sha256-modp2048
-        esp         = aes256-sha256-modp2048
-        ikelifetime = 8h
-        lifetime    = 1h
-        dpdaction   = clear
-        auto        = add
-    IPSECCONF
-
-    echo ': PSK "${var.tunnel_psk}"' > /etc/strongswan/ipsec.secrets
-    chmod 600 /etc/strongswan/ipsec.secrets
-    systemctl restart strongswan
+    cat > /etc/ipsec.d/onprem.secrets <<PSK_EOF
+    %any %any : PSK "${tunnel_psk}"
+    PSK_EOF
+    chmod 600 /etc/ipsec.d/onprem.secrets
 
     # dnsmasq: DNS bridge both directions (no-resolv = no loop)
     cat <<'DNSMASQ' > /etc/dnsmasq.conf
