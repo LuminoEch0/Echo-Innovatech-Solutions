@@ -9,12 +9,12 @@ data "aws_eip" "tunnel" {
   id = var.tunnel_eip_allocation_id
 }
 
-# 2. Tunnel instance: strongSwan + dnsmasq + Alloy
+# 2. Tunnel instance: Libreswan (IKEv2/PSK responder) + dnsmasq DNS bridge + Alloy
 resource "aws_instance" "tunnel" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.public_vpn.id
-  private_ip = var.tunnel_private_ip
+  private_ip                  = var.tunnel_private_ip
   vpc_security_group_ids      = [aws_security_group.tunnel_sg.id]
   associate_public_ip_address = false
   key_name                    = aws_key_pair.management_key.key_name
@@ -23,86 +23,88 @@ resource "aws_instance" "tunnel" {
   source_dest_check = false
 
   user_data = base64encode(<<-EOF
-    #!/bin/bash
-    dnf install -y libreswan dnsmasq
-    dnf install -y docker
-    systemctl enable --now docker  dnsmasq
-    ipsec initnss >/dev/null 2>&1 || true
-    systemctl enable --now ipsec
+#!/bin/bash
+set -x
+dnf install -y libreswan dnsmasq
 
-    cat <<'SYSCTL' > /etc/sysctl.d/99-ipsec.conf
-    net.ipv4.ip_forward = 1
-    net.ipv4.conf.all.accept_redirects = 0
-    net.ipv4.conf.all.send_redirects = 0
-    net.ipv4.conf.all.rp_filter = 0
-    net.ipv4.conf.default.rp_filter = 0
-    SYSCTL
-    sysctl --system
+cat <<'SYSCTL' > /etc/sysctl.d/99-ipsec.conf
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.all.rp_filter = 0
+net.ipv4.conf.default.rp_filter = 0
+SYSCTL
+sysctl --system
 
-    mkdir -p /etc/ipsec.d
-    grep -q 'ipsec.d/\*.conf' /etc/ipsec.conf || echo 'include /etc/ipsec.d/*.conf' >> /etc/ipsec.conf
-    grep -q 'ipsec.d/\*.secrets' /etc/ipsec.secrets || echo 'include /etc/ipsec.d/*.secrets' >> /etc/ipsec.secrets
-    cat > /etc/ipsec.d/onprem.conf <<'IPSEC_EOF'
-    conn onprem
-        type=tunnel
-        auto=add
-        authby=secret
-        left=%defaultroute
-        leftid=${data.aws_eip.tunnel.public_ip}
-        leftsubnet=10.0.0.0/16
-        right=%any
-        rightid=%any
-        rightsubnet=172.16.2.0/24
-        ikev2=insist
-        ike=aes256-sha2_256;dh14
-        esp=aes256-sha2_256;dh14
-        ikelifetime=8h
-        salifetime=1h
-        dpddelay=30
-        dpdtimeout=120
-        dpdaction=clear
-        encapsulation=yes
-        fragmentation=yes
-    IPSEC_EOF
+mkdir -p /etc/ipsec.d
+grep -q 'ipsec.d/\*.conf' /etc/ipsec.conf || echo 'include /etc/ipsec.d/*.conf' >> /etc/ipsec.conf
+grep -q 'ipsec.d/\*.secrets' /etc/ipsec.secrets || echo 'include /etc/ipsec.d/*.secrets' >> /etc/ipsec.secrets
+cat > /etc/ipsec.d/onprem.conf <<'IPSEC_EOF'
+conn onprem
+    type=tunnel
+    auto=add
+    authby=secret
+    left=%defaultroute
+    leftid=${data.aws_eip.tunnel.public_ip}
+    leftsubnet=10.0.0.0/16
+    right=%any
+    rightid=%any
+    rightsubnet=172.16.2.0/24
+    ikev2=insist
+    ike=aes256-sha2_256;dh14
+    esp=aes256-sha2_256;dh14
+    ikelifetime=8h
+    salifetime=1h
+    dpddelay=30
+    dpdtimeout=120
+    dpdaction=clear
+    encapsulation=yes
+    fragmentation=yes
+IPSEC_EOF
+cat > /etc/ipsec.d/onprem.secrets <<PSK_EOF
+%any %any : PSK "${tunnel_psk}"
+PSK_EOF
+chmod 600 /etc/ipsec.d/onprem.secrets
+systemctl enable --now ipsec
 
-    cat > /etc/ipsec.d/onprem.secrets <<PSK_EOF
-    %any %any : PSK "${var.tunnel_psk}"
-    PSK_EOF
-    chmod 600 /etc/ipsec.d/onprem.secrets
+cat <<'DNSMASQ' > /etc/dnsmasq.conf
+no-resolv
+server=10.0.0.2
+server=/${var.onprem_domain}/${var.onprem_dns}
+server=/2.16.172.in-addr.arpa/${var.onprem_dns}
+domain-needed
+cache-size=1000
+DNSMASQ
+systemctl enable --now dnsmasq
+systemctl restart dnsmasq
 
-    # dnsmasq: DNS bridge both directions (no-resolv = no loop)
-    cat <<'DNSMASQ' > /etc/dnsmasq.conf
-    no-resolv
-    server=10.0.0.2
-    server=/${var.onprem_domain}/${var.onprem_dns}
-    server=/121.168.192.in-addr.arpa/${var.onprem_dns}
-    domain-needed
-    cache-size=1000
-    DNSMASQ
-    systemctl restart dnsmasq
+# Alloy natively (CS2 new-host pattern) — no Docker runtime on a 1 GB box
+cat > /etc/yum.repos.d/grafana.repo <<'REPO'
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+exclude=*beta*
+REPO
+dnf install -y alloy
+cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
+prometheus.exporter.unix "local" { }
 
-    # Alloy with embedded unix exporter (CS2 new-host pattern)
-    mkdir -p /opt/alloy
-    cat <<'ALLOYCONFIG' > /opt/alloy/config.alloy
-    prometheus.exporter.unix "local" { }
+prometheus.scrape "unix" {
+  targets    = prometheus.exporter.unix.local.targets
+  forward_to = [prometheus.remote_write.monitoring.receiver]
+}
 
-    prometheus.scrape "unix" {
-      targets    = prometheus.exporter.unix.local.targets
-      forward_to = [prometheus.remote_write.monitoring.receiver]
-    }
-
-    prometheus.remote_write "monitoring" {
-      endpoint {
-        url = "http://${aws_instance.monitoring_server.private_ip}:9090/api/v1/write"
-      }
-    }
-    ALLOYCONFIG
-
-    docker run -d --name alloy --restart always \
-      --network host \
-      -v /opt/alloy/config.alloy:/etc/alloy/config.alloy:ro \
-      grafana/alloy:v1.5.0 \
-      run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+prometheus.remote_write "monitoring" {
+  endpoint {
+    url = "http://${aws_instance.monitoring_server.private_ip}:9090/api/v1/write"
+  }
+}
+ALLOYCONFIG
+systemctl enable --now alloy
   EOF
   )
 
