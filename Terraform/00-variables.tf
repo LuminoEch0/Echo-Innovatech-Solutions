@@ -11,7 +11,7 @@ variable "aws_region" {
 variable "tunnel_psk" {
   type        = string
   sensitive   = true
-  description = "IPsec PSK — injected by pipeline from GitHub secret TUNNEL_PSK"
+  description = "IPsec PSK - injected by pipeline from GitHub secret TUNNEL_PSK"
 }
 
 variable "onprem_cidr" {

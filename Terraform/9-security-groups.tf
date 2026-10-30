@@ -215,7 +215,7 @@ resource "aws_security_group" "tunnel_sg" {
   }
 
   ingress {
-    description = "IPsec NAT-T — pfSense peer is behind NAT"
+    description = "IPsec NAT-T - pfSense peer is behind NAT"
     from_port   = 4500
     to_port     = 4500
     protocol    = "udp"

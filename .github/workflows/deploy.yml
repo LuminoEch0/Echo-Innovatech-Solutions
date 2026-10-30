@@ -35,7 +35,7 @@ jobs:
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/src" aquasec/tfsec:latest /src/Terraform \
             --minimum-severity MEDIUM --no-color || \
-            echo "::warning::tfsec findings — review the output above"
+            echo "::warning::tfsec findings - review the output above"
 
   plan:
     name: "3 · Plan"
