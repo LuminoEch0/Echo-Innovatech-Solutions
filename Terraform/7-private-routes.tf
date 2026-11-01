@@ -10,11 +10,6 @@ resource "aws_route" "private_default" {
   nat_gateway_id         = aws_nat_gateway.nat_gw.id
 }
 
-resource "aws_route" "to_onprem" {
-  route_table_id         = aws_route_table.private_rt.id
-  destination_cidr_block = "172.16.2.0/24"
-  instance_id            = aws_instance.tunnel.id
-}
 
 resource "aws_route_table_association" "priv_web_1a" {
   subnet_id      = aws_subnet.private_web_1a.id
