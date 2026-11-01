@@ -16,7 +16,7 @@ resource "aws_instance" "tunnel" {
   subnet_id                   = aws_subnet.public_vpn.id
   private_ip                  = var.tunnel_private_ip
   vpc_security_group_ids      = [aws_security_group.tunnel_sg.id]
-  associate_public_ip_address = false
+  associate_public_ip_address = true
   key_name                    = aws_key_pair.management_key.key_name
 
   # Required: this box forwards between the VPC and the IPsec SA

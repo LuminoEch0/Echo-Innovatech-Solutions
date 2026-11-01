@@ -1,14 +1,19 @@
+# de-mix: the route table owns NO routes (inline blocks fight aws_route — visible in your plan diff)
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "private-route-table" }
+}
 
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gw.id
-  }
+resource "aws_route" "private_default" {
+  route_table_id         = aws_route_table.private_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat_gw.id
+}
 
-  tags = {
-    Name = "private-route-table"
-  }
+resource "aws_route" "to_onprem" {
+  route_table_id         = aws_route_table.private_rt.id
+  destination_cidr_block = "172.16.2.0/24"
+  instance_id            = aws_instance.tunnel.id
 }
 
 resource "aws_route_table_association" "priv_web_1a" {
