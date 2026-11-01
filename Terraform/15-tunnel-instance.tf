@@ -120,7 +120,7 @@ resource "aws_eip_association" "tunnel" {
 resource "aws_route" "to_onprem" {
   route_table_id         = aws_route_table.private_rt.id
   destination_cidr_block = var.onprem_cidr
-  network_interface_id   = aws_instance.tunnel.primary_network_interface_id
+  instance_id            = aws_instance.tunnel.id   # was network_interface_id
 }
 
 # 5. VPC DNS goes through dnsmasq first (on-prem zone), Amazon
