@@ -26,7 +26,7 @@ variable "onprem_dns" {
 
 variable "onprem_domain" {
   type    = string
-  default = "pfSense.localnetlab" #
+  default = "localnetlab"
 }
 
 variable "tunnel_eip_allocation_id" {
