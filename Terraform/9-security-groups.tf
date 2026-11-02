@@ -155,14 +155,6 @@ resource "aws_security_group" "monitoring_sg" {
     protocol    = "tcp"
     cidr_blocks = [var.onprem_cidr]
   }
-  
-  ingress {
-    description = "Prometheus 9090 from on-prem lab via IPsec"
-    from_port   = 9090
-    to_port     = 9090
-    protocol    = "tcp"
-    cidr_blocks = [var.onprem_cidr]
-  }
 
   egress {
     description = "Allow all outbound traffic to scrape targets"
