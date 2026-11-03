@@ -78,7 +78,7 @@ DNSMASQ
 systemctl enable --now dnsmasq
 systemctl restart dnsmasq
 
-# Alloy natively (CS2 new-host pattern) — no Docker runtime on a 1 GB box
+# ── Grafana Alloy: ONE install, ONE config shipping BOTH metrics and logs ──
 cat > /etc/yum.repos.d/grafana.repo <<'REPO'
 [grafana]
 name=grafana
@@ -90,7 +90,10 @@ gpgkey=https://rpm.grafana.com/gpg.key
 exclude=*beta*
 REPO
 dnf install -y alloy
+
+mkdir -p /etc/alloy
 cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
+# Metrics: node metrics of this instance -> Prometheus remote-write
 prometheus.exporter.unix "local" { }
 
 prometheus.scrape "unix" {
@@ -103,23 +106,8 @@ prometheus.remote_write "monitoring" {
     url = "http://${aws_instance.monitoring_server.private_ip}:9090/api/v1/write"
   }
 }
-ALLOYCONFIG
-# logging: Grafana Alloy agent
-cat > /etc/yum.repos.d/grafana.repo <<'REPO_EOF'
-[grafana]
-name=grafana
-baseurl=https://rpm.grafana.com
-repo_gpgcheck=1
-enabled=1
-gpgcheck=1
-gpgkey=https://rpm.grafana.com/gpg.key
-sslverify=1
-exclude=*grafana-enterprise
-REPO_EOF
-dnf install -y alloy
 
-mkdir -p /etc/alloy
-cat > /etc/alloy/config.alloy <<'ALLOY_EOF'
+# Logs: auth + system logs -> Loki
 local.file_match "tunnel_logs" {
   path_targets = [
     { "__path__" = "/var/log/secure",   "job" = "tunnel-auth", "host" = "tunnel" },
@@ -133,19 +121,17 @@ loki.source.file "tunnel_logs" {
 }
 
 loki.write "monitoring" {
-  endpoint { url = "http://10.0.30.10:3100/loki/api/v1/push" }
+  endpoint { url = "http://${aws_instance.monitoring_server.private_ip}:3100/loki/api/v1/push" }
 }
-ALLOY_EOF
+ALLOYCONFIG
 
 # Alloy runs as user "alloy" by default; /var/log/secure is root-only.
 mkdir -p /etc/systemd/system/alloy.service.d
 printf '[Service]\nUser=root\n' > /etc/systemd/system/alloy.service.d/override.conf
 systemctl daemon-reload
 systemctl enable --now alloy
-systemctl enable --now alloy
   EOF
   )
-
   tags = { Name = "soar-tunnel" }
 }
 
@@ -166,7 +152,7 @@ resource "aws_route" "to_onprem" {
 resource "aws_vpc_dhcp_options" "main" {
   domain_name         = "${var.aws_region}.compute.internal"
   domain_name_servers = [aws_instance.tunnel.private_ip, "AmazonProvidedDNS"]
-  tags = { Name = "main-dhcp-options" }
+  tags                = { Name = "main-dhcp-options" }
 }
 
 resource "aws_vpc_dhcp_options_association" "main" {

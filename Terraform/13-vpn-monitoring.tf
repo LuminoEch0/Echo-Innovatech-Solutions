@@ -57,143 +57,277 @@ resource "aws_instance" "monitoring_server" {
   associate_public_ip_address = false
 
   # Required for Prometheus EC2 service discovery (DescribeInstances API calls)
-  iam_instance_profile        = aws_iam_instance_profile.monitoring_profile.name
-  key_name                    = aws_key_pair.management_key.key_name
+  iam_instance_profile = aws_iam_instance_profile.monitoring_profile.name
+  key_name             = aws_key_pair.management_key.key_name
 
 
   user_data = base64encode(<<-EOF
-              #!/bin/bash
-              dnf install -y docker
-              sudo mkdir -p /usr/local/lib/docker/cli-plugins
-              sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+#!/bin/bash
+set -x
+dnf install -y docker
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-              systemctl start docker
-              systemctl enable docker
+systemctl start docker
+systemctl enable docker
 
-              mkdir -p /opt/monitoring
+# ── 1 GB swap: 4 containers on a 1 GB instance need headroom ──
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 1024M /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
 
-              cat <<PROMCONFIG > /opt/monitoring/prometheus.yml
-              global:
-                scrape_interval: 15s
+mkdir -p /opt/monitoring
 
-              scrape_configs:
-                - job_name: 'prometheus'
-                  static_configs:
-                    - targets: ['localhost:9090']
+cat <<PROMCONFIG > /opt/monitoring/prometheus.yml
+global:
+  scrape_interval: 15s
 
-                # Dynamic discovery of web servers via the EC2 API.
-                - job_name: 'web-servers'
-                  ec2_sd_configs:
-                    - region: '${var.aws_region}'
-                      port: 9100
-                      filters:
-                        - name: subnet-id
-                          values:
-                            - '${aws_subnet.private_web_1a.id}'
-                            - '${aws_subnet.private_web_1b.id}'
-                  relabel_configs:
-                    # Label instances by their Name tag + AZ so dashboards can tell replicas apart
-                    - source_labels: [__meta_ec2_tag_Name, __meta_ec2_availability_zone]
-                      separator: '-'
-                      target_label: instance
-              PROMCONFIG
-                            
-                            # Grafana provisioning from repo — restored on every build
-              mkdir -p /opt/grafana/provisioning/datasources \
-                      /opt/grafana/provisioning/dashboards \
-                      /opt/grafana/provisioning/alerting \
-                      /opt/grafana/provisioning/plugins \
-                      /opt/grafana/provisioning/notifiers \
-                      /var/lib/grafana/dashboards
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
 
-              cat <<'DS' > /opt/grafana/provisioning/datasources/prometheus.yml
-              apiVersion: 1
-              datasources:
-                - name: Prometheus
-                  type: prometheus
-                  uid: efzp33czx74lce
-                  access: proxy
-                  url: http://prometheus:9090
-                  isDefault: true
-              DS
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
 
-              cat <<'DBPROV' > /opt/grafana/provisioning/dashboards/provider.yml
-              apiVersion: 1
-              providers:
-                - name: default
-                  type: file
-                  updateIntervalSeconds: 30
-                  options:
-                    path: /var/lib/grafana/dashboards
-              DBPROV
+  - job_name: 'alloy'
+    static_configs:
+      - targets: ['alloy:12345']
 
-              cat > /opt/grafana/provisioning/alerting/contactPoints.yml <<CP_EOF
-              apiVersion: 1
-              contactPoints:
-                - orgId: 1
-                  name: Discord-alerts
-                  receivers:
-                    - uid: discord-alerts-001
-                      type: discord
-                      disableResolveMessage: false
-                      settings:
-                        url: "${var.discord_webhook_url}"
-              CP_EOF
+  # Dynamic discovery of web servers via the EC2 API.
+  - job_name: 'web-servers'
+    ec2_sd_configs:
+      - region: '${var.aws_region}'
+        port: 9100
+        filters:
+          - name: subnet-id
+            values:
+              - '${aws_subnet.private_web_1a.id}'
+              - '${aws_subnet.private_web_1b.id}'
+    relabel_configs:
+      # Label instances by their Name tag + AZ so dashboards can tell replicas apart
+      - source_labels: [__meta_ec2_tag_Name, __meta_ec2_availability_zone]
+        separator: '-'
+        target_label: instance
+PROMCONFIG
 
-              cat > /opt/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
-              apiVersion: 1
-              policies:
-                - orgId: 1
-                  receiver: Discord-alerts
-                  group_by: ['alertname']
-              POLICIES_EOF
+# Grafana provisioning from repo — restored on every build
+mkdir -p /opt/grafana/provisioning/datasources \
+        /opt/grafana/provisioning/dashboards \
+        /opt/grafana/provisioning/alerting \
+        /opt/grafana/provisioning/plugins \
+        /opt/grafana/provisioning/notifiers \
+        /var/lib/grafana/dashboards
 
-              echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
-                > /var/lib/grafana/dashboards/legacy-dashboard.json
+cat <<'DS' > /opt/grafana/provisioning/datasources/prometheus.yml
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: efzp33czx74lce
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+DS
 
-              echo '${base64gzip(file("${path.module}/Grafana/legacy-rules.yaml"))}' | base64 -d | gunzip \
-                > /opt/grafana/provisioning/alerting/legacy-rules.yaml
+# Loki datasource — provisioned from repo file Grafana/loki.yml
+echo '${base64gzip(file("${path.module}/Grafana/loki.yml"))}' | base64 -d | gunzip \
+  > /opt/grafana/provisioning/datasources/loki.yml
 
-              # Generate Docker Compose stack with persistent storage volumes
-              cat <<'DOCKERCOMPOSE' > /opt/monitoring/docker-compose.yml
-              version: '3.8'
+cat <<'DBPROV' > /opt/grafana/provisioning/dashboards/provider.yml
+apiVersion: 1
+providers:
+  - name: default
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+DBPROV
 
-              services:
-                prometheus:
-                  image: prom/prometheus:v2.54.0
-                  container_name: prometheus
-                  restart: always
-                  ports:
-                    - "9090:9090"
-                  volumes:
-                    - /opt/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-                    - prometheus_data:/prometheus
-                  command:
-                    - '--config.file=/etc/prometheus/prometheus.yml'
-                    - '--web.enable-remote-write-receiver'
+cat > /opt/grafana/provisioning/alerting/contactPoints.yml <<CP_EOF
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: Discord-alerts
+    receivers:
+      - uid: discord-alerts-001
+        type: discord
+        disableResolveMessage: false
+        settings:
+          url: "${var.discord_webhook_url}"
+CP_EOF
 
-                grafana:
-                  image: grafana/grafana:11.1.0
-                  container_name: grafana
-                  restart: always
-                  ports:
-                    - "3000:3000"
-                  environment:
-                    - GF_SECURITY_ADMIN_PASSWORD=admin
-                  volumes:
-                    - grafana_data:/var/lib/grafana
-                    - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
-                    - /var/lib/grafana/dashboards:/var/lib/grafana/dashboards:ro
+cat > /opt/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
+apiVersion: 1
+policies:
+  - orgId: 1
+    receiver: Discord-alerts
+    group_by: ['alertname']
+POLICIES_EOF
 
-              volumes:
-                prometheus_data:
-                grafana_data:
-              DOCKERCOMPOSE
+echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
+  > /var/lib/grafana/dashboards/legacy-dashboard.json
 
-              # Start monitoring stack
-              docker compose -f /opt/monitoring/docker-compose.yml up -d
-              EOF
+echo '${base64gzip(file("${path.module}/Grafana/legacy-rules.yaml"))}' | base64 -d | gunzip \
+  > /opt/grafana/provisioning/alerting/legacy-rules.yaml
+
+# ── Loki: S3 object store + 30-day retention via compactor ──
+# (S3 lifecycle 60d in 18-loki-storage.tf is only a disaster backstop)
+cat <<'LOKICONF' > /opt/monitoring/loki-config.yml
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  aws:
+    bucketnames: ${aws_s3_bucket.loki.id}
+    endpoint: https://s3.${var.aws_region}.amazonaws.com
+    region: ${var.aws_region}
+    s3forcepathstyle: false
+    insecure: false
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: s3
+
+limits_config:
+  retention_period: 744h
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+LOKICONF
+
+# ── pfSense syslog receiver (REQ-07 source type 2): rsyslog UDP 514 -> file ──
+cat <<'RSYSLOG' >> /etc/rsyslog.conf
+
+# CS2 M2 - pfSense remote syslog (UDP 514) -> dedicated file for Alloy
+module(load="imudp")
+input(type="imudp" port="514")
+if $fromhost-ip startswith '172.16.' then /var/log/pfsense.log
+RSYSLOG
+touch /var/log/pfsense.log
+chmod 644 /var/log/pfsense.log
+systemctl enable --now rsyslog
+systemctl restart rsyslog
+
+cat <<'LOGROTATE' > /etc/logrotate.d/pfsense-syslog
+/var/log/pfsense.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    copytruncate
+}
+LOGROTATE
+
+# ── Alloy (monitoring): tail the relayed pfSense log -> Loki ──
+cat <<'ALLOYCONF' > /opt/monitoring/alloy-config.alloy
+local.file_match "pfsense_logs" {
+  path_targets = [
+    { "__path__" = "/var/log/pfsense.log", "job" = "pfsense", "host" = "pfsense" },
+  ]
+}
+
+loki.source.file "pfsense_logs" {
+  targets    = local.file_match.pfsense_logs.targets
+  forward_to = [loki.write.loki.receiver]
+}
+
+loki.write "loki" {
+  endpoint { url = "http://loki:3100/loki/api/v1/push" }
+}
+ALLOYCONF
+
+# ── Docker Compose stack: Prometheus + Grafana + Loki + Alloy ──
+cat <<'DOCKERCOMPOSE' > /opt/monitoring/docker-compose.yml
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - /opt/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-remote-write-receiver'
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /var/lib/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: loki
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - /opt/monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: alloy
+    restart: always
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - /opt/monitoring/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/log/pfsense.log:/var/log/pfsense.log:ro
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+DOCKERCOMPOSE
+
+docker compose -f /opt/monitoring/docker-compose.yml up -d
+  EOF
   )
 
   tags = {
