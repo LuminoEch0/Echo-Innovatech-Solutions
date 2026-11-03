@@ -156,6 +156,28 @@ resource "aws_security_group" "monitoring_sg" {
     cidr_blocks = [var.onprem_cidr]
   }
 
+  ingress {
+    description = "Loki push API from VPC (Alloy agent)"
+    from_port   = 3100
+    to_port     = 3100
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+  ingress {
+    description = "pfSense syslog UDP 514"
+    from_port   = 514
+    to_port     = 514
+    protocol    = "udp"
+    cidr_blocks = [var.onprem_cidr]
+  }
+  ingress {
+    description = "pfSense syslog TCP 514"
+    from_port   = 514
+    to_port     = 514
+    protocol    = "tcp"
+    cidr_blocks = [var.onprem_cidr]
+  }
+
   egress {
     description = "Allow all outbound traffic to scrape targets"
     from_port   = 0

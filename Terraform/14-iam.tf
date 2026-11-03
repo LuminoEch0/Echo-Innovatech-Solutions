@@ -31,6 +31,26 @@ resource "aws_iam_role_policy" "ec2_discovery" {
   })
 }
 
+resource "aws_iam_role_policy" "loki_s3" {
+  name = "loki-s3-access"
+  role = aws_iam_role.monitoring_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject", "s3:GetObject", "s3:DeleteObject",
+        "s3:ListBucket", "s3:AbortMultipartUpload"
+      ]
+      Resource = [
+        aws_s3_bucket.loki.arn,
+        "${aws_s3_bucket.loki.arn}/*"
+      ]
+    }]
+  })
+}
+
+
 resource "aws_iam_instance_profile" "monitoring_profile" {
   name = "app-monitoring-server-profile"
   role = aws_iam_role.monitoring_role.name

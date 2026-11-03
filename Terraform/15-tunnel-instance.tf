@@ -104,6 +104,44 @@ prometheus.remote_write "monitoring" {
   }
 }
 ALLOYCONFIG
+# logging: Grafana Alloy agent
+cat > /etc/yum.repos.d/grafana.repo <<'REPO_EOF'
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+exclude=*grafana-enterprise
+REPO_EOF
+dnf install -y alloy
+
+mkdir -p /etc/alloy
+cat > /etc/alloy/config.alloy <<'ALLOY_EOF'
+local.file_match "tunnel_logs" {
+  path_targets = [
+    { "__path__" = "/var/log/secure",   "job" = "tunnel-auth", "host" = "tunnel" },
+    { "__path__" = "/var/log/messages", "job" = "tunnel-sys",  "host" = "tunnel" },
+  ]
+}
+
+loki.source.file "tunnel_logs" {
+  targets    = local.file_match.tunnel_logs.targets
+  forward_to = [loki.write.monitoring.receiver]
+}
+
+loki.write "monitoring" {
+  endpoint { url = "http://10.0.30.10:3100/loki/api/v1/push" }
+}
+ALLOY_EOF
+
+# Alloy runs as user "alloy" by default; /var/log/secure is root-only.
+mkdir -p /etc/systemd/system/alloy.service.d
+printf '[Service]\nUser=root\n' > /etc/systemd/system/alloy.service.d/override.conf
+systemctl daemon-reload
+systemctl enable --now alloy
 systemctl enable --now alloy
   EOF
   )
