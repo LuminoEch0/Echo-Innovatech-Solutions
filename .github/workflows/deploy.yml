@@ -81,4 +81,26 @@ jobs:
           terraform init -input=false
           terraform apply -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan 
 
+  soar-image:
+    name: "5 · SOAR image + rollout"
+    runs-on: [self-hosted, Linux, X64]
+    needs: [apply]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::416291743382:role/app-github-deployer
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Build and push SOAR worker image
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          ECR=$ACCOUNT.dkr.ecr.eu-central-1.amazonaws.com
+          aws ecr get-login-password | docker login --username AWS --password-stdin $ECR
+          docker build -t $ECR/cs2/soar-worker:latest soar/
+          docker push $ECR/cs2/soar-worker:latest
+      - name: Roll SOAR service onto the new image
+        run: |
+          aws ecs update-service --cluster cs2-soar --service cs2-soar \
+            --force-new-deployment
+
 # -replace="aws_instance.tunnel" -replace="aws_instance.monitoring_server"
