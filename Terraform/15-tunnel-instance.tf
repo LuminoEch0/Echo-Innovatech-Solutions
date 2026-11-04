@@ -26,6 +26,8 @@ resource "aws_instance" "tunnel" {
 #!/bin/bash
 set -x
 dnf install -y libreswan dnsmasq
+dnf install -y rsyslog
+systemctl enable --now rsyslog
 
 cat <<'SYSCTL' > /etc/sysctl.d/99-ipsec.conf
 net.ipv4.ip_forward = 1
