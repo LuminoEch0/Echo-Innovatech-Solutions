@@ -93,7 +93,7 @@ dnf install -y alloy
 
 mkdir -p /etc/alloy
 cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
-# Metrics: node metrics of this instance -> Prometheus remote-write
+// Metrics: node metrics of this instance -> Prometheus remote-write
 prometheus.exporter.unix "local" { }
 
 prometheus.scrape "unix" {
@@ -107,7 +107,7 @@ prometheus.remote_write "monitoring" {
   }
 }
 
-# Logs: auth + system logs -> Loki
+// Logs: auth + system logs -> Loki
 local.file_match "tunnel_logs" {
   path_targets = [
     { "__path__" = "/var/log/secure",   "job" = "tunnel-auth", "host" = "tunnel" },
