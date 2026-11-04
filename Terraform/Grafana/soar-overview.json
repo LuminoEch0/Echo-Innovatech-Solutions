@@ -1,0 +1,47 @@
+{
+  "title": "SOAR Overview",
+  "uid": "soar-overview",
+  "tags": ["soar"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-3h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Events received (1h)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
+      "targets": [{ "namespace": "CS2/SOAR", "metricName": "EventsReceived", "dimensions": {}, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "DLQ depth",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
+      "targets": [{ "namespace": "CS2/SOAR", "metricName": "DlqDepth", "dimensions": {}, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Actions: executed vs failed (rate)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
+      "targets": [
+        { "namespace": "CS2/SOAR", "metricName": "ActionsExecuted", "dimensions": {}, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A", "legendFormat": "executed" },
+        { "namespace": "CS2/SOAR", "metricName": "ActionFailures", "dimensions": {}, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "B", "legendFormat": "failed" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 15 } } },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Queue backlog (SQS, free metrics)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
+      "targets": [
+        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-events" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "refId": "A", "legendFormat": "events backlog" },
+        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-dlq" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "refId": "B", "legendFormat": "DLQ" }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

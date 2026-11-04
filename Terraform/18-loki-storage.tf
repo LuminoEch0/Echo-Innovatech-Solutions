@@ -5,7 +5,8 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "loki" {
-  bucket = "cs2-loki-${data.aws_caller_identity.current.account_id}"
+  bucket        = "cs2-loki-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
   tags = { Name = "cs2-loki-logs" }
 }
 

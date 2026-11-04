@@ -140,9 +140,17 @@ datasources:
     isDefault: true
 DS
 
-# Loki datasource — provisioned from repo file Grafana/loki.yml
-echo '${base64gzip(file("${path.module}/Grafana/loki.yml"))}' | base64 -d | gunzip \
-  > /opt/grafana/provisioning/datasources/loki.yml
+cat <<'CWDS' > /opt/grafana/provisioning/datasources/cloudwatch.yml
+apiVersion: 1
+datasources:
+  - name: CloudWatch
+    uid: cloudwatch-soar
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      authType: default
+      defaultRegion: eu-central-1
+CWDS
 
 cat <<'DBPROV' > /opt/grafana/provisioning/dashboards/provider.yml
 apiVersion: 1
@@ -165,6 +173,18 @@ contactPoints:
         disableResolveMessage: false
         settings:
           url: "${var.discord_webhook_url}"
+
+  - orgId: 1
+    name: SOAR-webhook
+    receivers:
+      - uid: soar-webhook-001
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: "http://soar.internal.domain:8080/webhook"
+          httpMethod: POST
+          authorization_scheme: "Token"
+          authorization_credentials: "${random_password.soar_token.result}"
 CP_EOF
 
 cat > /opt/grafana/provisioning/alerting/policies.yml <<POLICIES_EOF
@@ -173,7 +193,21 @@ policies:
   - orgId: 1
     receiver: Discord-alerts
     group_by: ['alertname']
+    policies:
+      - receiver: SOAR-webhook
+        object_matchers:
+          - ['soar', '=', 'true']
 POLICIES_EOF
+
+# Loki datasource — provisioned from repo file Grafana/loki.yml
+echo '${base64gzip(file("${path.module}/Grafana/loki.yml"))}' | base64 -d | gunzip \
+  > /opt/grafana/provisioning/datasources/loki.yml
+
+echo '${base64gzip(file("${path.module}/Grafana/soar-rules.yaml"))}' | base64 -d | gunzip \
+  > /opt/grafana/provisioning/alerting/soar-rules.yaml
+
+echo '${base64gzip(file("${path.module}/Grafana/soar-overview.json"))}' | base64 -d | gunzip \
+  > /var/lib/grafana/dashboards/soar-overview.json
 
 echo '${base64gzip(replace(file("${path.module}/Grafana/legacy-dashboard.json"), "$${DS_PROMETHEUS}", "efzp33czx74lce"))}' | base64 -d | gunzip \
   > /var/lib/grafana/dashboards/legacy-dashboard.json

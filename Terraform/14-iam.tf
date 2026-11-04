@@ -50,6 +50,18 @@ resource "aws_iam_role_policy" "loki_s3" {
   })
 }
 
+resource "aws_iam_role_policy" "monitoring_cloudwatch" {
+  name = "monitoring-cloudwatch-read"
+  role = aws_iam_role.monitoring_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["cloudwatch:ListMetrics", "cloudwatch:GetMetricData", "cloudwatch:GetMetricStatistics"]
+      Resource = "*"
+    }]
+  })
+}
 
 resource "aws_iam_instance_profile" "monitoring_profile" {
   name = "app-monitoring-server-profile"
