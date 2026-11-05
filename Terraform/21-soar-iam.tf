@@ -36,6 +36,12 @@ resource "aws_iam_role_policy" "soar_actions" {
         ]
       },
       {
+        Sid      = "AllowWebhookSendMessages"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = [aws_sqs_queue.soar_events.arn]
+      },
+      {
         Effect = "Allow"
         Action = [
           "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query",
