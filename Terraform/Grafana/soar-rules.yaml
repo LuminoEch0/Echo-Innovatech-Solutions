@@ -138,9 +138,9 @@ groups:
                 uid: cloudwatch-soar
               namespace: CS2/SOAR
               metricName: DlqDepth
-              dimensions: {}
+              dimensions: soar-worker
               region: eu-central-1
-              statistic: Sum
+              statistic: Sum #could be changed to Maximum, but Sum is more accurate for this use case
               period: '60'
               queryType: timeSeriesQuery
               refId: A
