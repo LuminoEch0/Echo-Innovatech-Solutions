@@ -63,6 +63,38 @@ resource "aws_iam_role_policy" "monitoring_cloudwatch" {
   })
 }
 
+
+# Allow monitoring EC2 to inspect and test SOAR SQS queues
+resource "aws_iam_role_policy" "monitoring_sqs" {
+  name = "monitoring-soar-sqs-access"
+  role = aws_iam_role.monitoring_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "InspectSoarQueues"
+        Effect = "Allow"
+        Action = [
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = [
+          aws_sqs_queue.soar_events.arn,
+          aws_sqs_queue.soar_dlq.arn
+        ]
+      },
+      {
+        Sid      = "SendTestMessages"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = [aws_sqs_queue.soar_events.arn]
+      }
+    ]
+  })
+}
+
+
 resource "aws_iam_instance_profile" "monitoring_profile" {
   name = "app-monitoring-server-profile"
   role = aws_iam_role.monitoring_role.name

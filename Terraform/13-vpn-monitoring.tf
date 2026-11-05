@@ -59,7 +59,7 @@ resource "aws_instance" "monitoring_server" {
   # Required for Prometheus EC2 service discovery (DescribeInstances API calls)
   iam_instance_profile = aws_iam_instance_profile.monitoring_profile.name
   key_name             = aws_key_pair.management_key.key_name
-  
+
   metadata_options {
   http_endpoint               = "enabled"
   http_tokens                 = "required"
@@ -155,6 +155,7 @@ datasources:
     jsonData:
       authType: default
       defaultRegion: eu-central-1
+      customMetricsNamespaces: 'CS2/SOAR'
 CWDS
 
 cat <<'DBPROV' > /opt/grafana/provisioning/dashboards/provider.yml

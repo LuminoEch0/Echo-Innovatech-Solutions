@@ -11,14 +11,14 @@
       "id": 1, "type": "stat", "title": "Events received (1h)",
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
-      "targets": [{ "namespace": "CS2/SOAR", "metricName": "EventsReceived", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A" }],
+      "targets": [{ "namespace": "CS2/SOAR", "metricName": "EventsReceived", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "metricQueryType": 0, "metricEditorMode": 0, "refId": "A" }],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 2, "type": "stat", "title": "DLQ depth",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
-      "targets": [{ "namespace": "CS2/SOAR", "metricName": "DlqDepth", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A" }],
+      "targets": [{ "namespace": "CS2/SOAR", "metricName": "DlqDepth", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "metricQueryType": 0, "metricEditorMode": 0, "refId": "A" }],
       "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
@@ -27,8 +27,8 @@
       "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
       "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
       "targets": [
-        { "namespace": "CS2/SOAR", "metricName": "ActionsExecuted", "dimensions": { "Component":  "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A", "legendFormat": "executed" },
-        { "namespace": "CS2/SOAR", "metricName": "ActionFailures", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "B", "legendFormat": "failed" }
+        { "namespace": "CS2/SOAR", "metricName": "ActionsExecuted", "dimensions": { "Component":  "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "A", "metricQueryType": 0, "metricEditorMode": 0, "legendFormat": "executed" },
+        { "namespace": "CS2/SOAR", "metricName": "ActionFailures", "dimensions": { "Component": "soar-worker" }, "region": "eu-central-1", "statistic": "Sum", "period": "60", "refId": "B", "metricQueryType": 0, "metricEditorMode": 0, "legendFormat": "failed" }
       ],
       "fieldConfig": { "defaults": { "custom": { "fillOpacity": 15 } } },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
@@ -38,8 +38,8 @@
       "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
       "datasource": { "type": "cloudwatch", "uid": "cloudwatch-soar" },
       "targets": [
-        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-events" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "refId": "A", "legendFormat": "events backlog" },
-        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-dlq" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "refId": "B", "legendFormat": "DLQ" }
+        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-events" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "metricQueryType": 0, "metricEditorMode": 0, "refId": "A", "legendFormat": "events backlog" },
+        { "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "dimensions": { "QueueName": "cs2-soar-dlq" }, "region": "eu-central-1", "statistic": "Maximum", "period": "60", "refId": "B", "metricQueryType": 0, "metricEditorMode": 0, "legendFormat": "DLQ" }
       ],
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
     }
