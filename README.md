@@ -17,4 +17,4 @@ Key design decisions
 Scaling on ALB requests-per-target (load test showed CPU was the wrong signal for this I/O-bound workload)
 OIDC-federated pipeline with least-privilege app-* IAM scoping — zero stored credentials
 Fully idempotent: destroy + rebuild reproduces the entire environment, self-seeding database included  
-  
+   
