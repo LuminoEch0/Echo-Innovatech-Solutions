@@ -8,6 +8,7 @@ groups:
       - uid: soar-ssh-bruteforce
         title: ssh-bruteforce
         condition: C
+        for: 0s
         noDataState: OK
         execErrState: Error
         labels:
@@ -60,6 +61,7 @@ groups:
       - uid: soar-pfsense-deny-flood
         title: pfsense-deny-flood
         condition: C
+        for: 0s
         noDataState: OK
         execErrState: Error
         labels:
@@ -117,6 +119,7 @@ groups:
       - uid: soar-dlq-notempty
         title: soar-dlq-notempty
         condition: C
+        for: 0s
         noDataState: OK
         execErrState: Error
         labels:
