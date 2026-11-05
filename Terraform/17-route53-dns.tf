@@ -40,7 +40,7 @@ resource "aws_route53_record" "vpn" {
 }
 
 resource "aws_route53_record" "soar_listener_alias" {
-  zone_id = aws_route53_zone.internal.id   # your existing internal.domain zone resource
+  zone_id = aws_route53_zone.internal.zone_id  
   name    = "soar.internal.domain"
   type    = "CNAME"
   ttl     = 15
