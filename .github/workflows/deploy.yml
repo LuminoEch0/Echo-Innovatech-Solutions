@@ -56,6 +56,7 @@ jobs:
           tunnel_eip_allocation_id = "${{ vars.TUNNEL_EIP_ALLOCATION_ID }}"
           tunnel_private_ip = "${{ vars.TUNNEL_PRIVATE_IP }}"
           monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
+          vpn_bastion_host = "${{ vars.VPN_BASTION_HOST }}"
           EOF
           terraform init -input=false
           terraform plan -replace="aws_instance.monitoring_server" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
