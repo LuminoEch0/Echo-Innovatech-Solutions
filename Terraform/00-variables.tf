@@ -48,3 +48,8 @@ variable "discord_webhook_url" {
   type      = string
   sensitive = true
 }
+
+variable "VPN_BASTION_HOST" {
+  type        = string
+  description = "Public IP address of the VPN bastion host"
+}

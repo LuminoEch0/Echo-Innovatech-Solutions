@@ -1,0 +1,23 @@
+---
+- name: Update Linux machines
+  hosts: aws_linux
+  become: true
+  serial: 1
+
+  tasks:
+    - name: Update installed packages
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: true
+
+    - name: Check whether reboot is required
+      ansible.builtin.command: needs-restarting -r
+      register: reboot_check
+      changed_when: false
+      failed_when: reboot_check.rc not in [0, 1]
+
+    - name: Reboot when required
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+      when: reboot_check.rc == 1

@@ -1,0 +1,106 @@
+
+name: Weekly Linux Updates
+
+on:
+  # schedule:
+  #   - cron: "0 3 * * 6"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-linux:
+    name: Update persistent Linux servers
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          python3 -m pip install --user ansible
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure SSH
+        env:
+          VPN_BASTION_HOST: ${{ vars.VPN_BASTION_HOST }}
+        run: |
+          set -e
+
+          KEY="$HOME/.ssh/aws-lab"
+
+          if [ -z "$VPN_BASTION_HOST" ]; then
+            echo "VPN_BASTION_HOST GitHub variable is not configured."
+            exit 1
+          fi
+
+          if [ ! -f "$KEY" ]; then
+            echo "SSH private key not found: $KEY"
+            exit 1
+          fi
+
+          chmod 600 "$KEY"
+          mkdir -p "$HOME/.ssh"
+          touch "$HOME/.ssh/config"
+          chmod 600 "$HOME/.ssh/config"
+
+          # Remove previous entries for these aliases before writing them.
+          sed -i '/^Host bastion$/,/^$/d' "$HOME/.ssh/config"
+          sed -i '/^Host 10\.0\.30\.10 10\.0\.3\.10$/,/^$/d' "$HOME/.ssh/config"
+
+          cat >> "$HOME/.ssh/config" <<EOF
+          Host bastion
+              HostName ${VPN_BASTION_HOST}
+              User ec2-user
+              IdentityFile ${KEY}
+              IdentitiesOnly yes
+              StrictHostKeyChecking yes
+              HostKeyAlias ${VPN_BASTION_HOST}
+
+          Host 10.0.30.10 10.0.3.10
+              User ec2-user
+              IdentityFile ${KEY}
+              IdentitiesOnly yes
+              ProxyJump bastion
+              StrictHostKeyChecking yes
+          EOF
+
+      - name: Generate Ansible inventory
+        run: |
+          cat > ansible/aws.ini <<'EOF'
+          [aws_linux]
+          vpn_bastion ansible_host=bastion
+          monitoring ansible_host=10.0.30.10
+          tunnel ansible_host=10.0.3.10
+
+          [aws_linux:vars]
+          ansible_user=ec2-user
+          ansible_ssh_private_key_file=~/.ssh/aws-lab
+          ansible_ssh_common_args=-o ProxyJump=bastion
+          EOF
+
+      - name: Check SSH connectivity
+        run: |
+          set -e
+
+          echo "Testing bastion..."
+          ssh bastion "hostname"
+
+          echo "Testing monitoring server..."
+          ssh 10.0.30.10 "hostname"
+
+          echo "Testing IPsec tunnel..."
+          ssh 10.0.3.10 "hostname"
+
+      - name: Check Ansible connectivity
+        run: |
+          ansible aws_linux -m ping
+
+      - name: Update Linux machines
+        run: |
+          ansible-playbook \
+            -i ansible/aws.ini \
+            ansible/playbooks/update-linux.yml
