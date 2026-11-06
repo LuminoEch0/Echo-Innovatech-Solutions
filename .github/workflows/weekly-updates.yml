@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Ansible
         run: |
-          pipx install ansible
+          pipx install ansible || pipx upgrade ansible
           pipx ensurepath
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
@@ -58,7 +58,7 @@ jobs:
               User ec2-user
               IdentityFile ${KEY}
               IdentitiesOnly yes
-              StrictHostKeyChecking yes
+              StrictHostKeyChecking accept-new
               HostKeyAlias ${VPN_BASTION_HOST}
 
           Host 10.0.30.10 10.0.3.10
@@ -66,7 +66,7 @@ jobs:
               IdentityFile ${KEY}
               IdentitiesOnly yes
               ProxyJump bastion
-              StrictHostKeyChecking yes
+              StrictHostKeyChecking accept-new
           EOF
 
       - name: Check SSH connectivity
