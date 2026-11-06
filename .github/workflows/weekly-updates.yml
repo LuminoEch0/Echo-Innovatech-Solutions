@@ -82,9 +82,9 @@ jobs:
           echo "Testing IPsec tunnel..."
           ssh 10.0.3.10 "hostname"
 
-      - name: Check Ansible connectivity
-        run: |
-          ansible aws_linux -m ping -i Terraform/ansible/inventory/aws.ini
+      # - name: Check Ansible connectivity
+      #   run: |
+      #     ansible aws_linux -m ping -i Terraform/ansible/inventory/aws.ini
 
       - name: Update Linux machines
         run: |
