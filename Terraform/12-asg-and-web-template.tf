@@ -30,7 +30,7 @@ resource "aws_launch_template" "web_lt" {
               #!/bin/bash
               # Doesn't requre updating the system as Amazon Linux 2023 is already up-to-date
               dnf install -y docker
-              dnf install -y docker nmap-ncat
+              dnf install nmap-ncat
               systemctl start docker
               systemctl enable docker
 

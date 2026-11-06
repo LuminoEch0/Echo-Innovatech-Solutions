@@ -69,20 +69,6 @@ jobs:
               StrictHostKeyChecking yes
           EOF
 
-      - name: Generate Ansible inventory
-        run: |
-          cat > ansible/aws.ini <<'EOF'
-          [aws_linux]
-          vpn_bastion ansible_host=bastion
-          monitoring ansible_host=10.0.30.10
-          tunnel ansible_host=10.0.3.10
-
-          [aws_linux:vars]
-          ansible_user=ec2-user
-          ansible_ssh_private_key_file=~/.ssh/aws-lab
-          ansible_ssh_common_args=-o ProxyJump=bastion
-          EOF
-
       - name: Check SSH connectivity
         run: |
           set -e
@@ -98,10 +84,10 @@ jobs:
 
       - name: Check Ansible connectivity
         run: |
-          ansible aws_linux -m ping
+          ansible aws_linux -m ping -i Terraform/ansible/inventory/aws.ini
 
       - name: Update Linux machines
         run: |
           ansible-playbook \
-            -i ansible/aws.ini \
-            ansible/playbooks/update-linux.yml
+            -i Terraform/ansible/inventory/aws.ini \
+            Terraform/ansible/playbooks/update-linux.yml
