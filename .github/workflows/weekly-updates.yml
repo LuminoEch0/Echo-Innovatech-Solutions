@@ -21,7 +21,8 @@ jobs:
 
       - name: Install Ansible
         run: |
-          python3 -m pip install --user ansible
+          pipx install ansible
+          pipx ensurepath
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Configure SSH
