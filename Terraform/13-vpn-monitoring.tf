@@ -27,6 +27,47 @@ resource "aws_instance" "vpn_server" {
                 http://169.254.169.254/latest/meta-data/public-ipv4)
               OVPN_DATA="ovpn-data"
 
+              # ── CS2 M2: host log shipping (same new-host pattern as tunnel) ──
+              dnf install -y rsyslog
+              systemctl enable --now rsyslog
+
+              cat > /etc/yum.repos.d/grafana.repo <<'REPO'
+              [grafana]
+              name=grafana
+              baseurl=https://rpm.grafana.com
+              repo_gpgcheck=1
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://rpm.grafana.com/gpg.key
+              exclude=*beta*
+              REPO
+              dnf install -y alloy
+
+              mkdir -p /etc/alloy
+              cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
+              // Logs: the internet-exposed SSH surface -> Loki
+              local.file_match "vpn_logs" {
+                path_targets = [
+                  { "__path__" = "/var/log/secure",   "job" = "vpn-auth", "host" = "vpn" },
+                  { "__path__" = "/var/log/messages", "job" = "vpn-sys",  "host" = "vpn" },
+                ]
+              }
+
+              loki.source.file "vpn_logs" {
+                targets    = local.file_match.vpn_logs.targets
+                forward_to = [loki.write.monitoring.receiver]
+              }
+
+              loki.write "monitoring" {
+                endpoint { url = "http://${aws_instance.monitoring_server.private_ip}:3100/loki/api/v1/push" }
+              }
+              ALLOYCONFIG
+
+              mkdir -p /etc/systemd/system/alloy.service.d
+              printf '[Service]\nUser=root\n' > /etc/systemd/system/alloy.service.d/override.conf
+              systemctl daemon-reload
+              systemctl enable --now alloy
+
               # Create volume and initialize OpenVPN container automatically
               docker volume create $OVPN_DATA
               docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_genconfig -u udp://$PUBLIC_IP
