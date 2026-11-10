@@ -99,3 +99,34 @@ resource "aws_iam_instance_profile" "monitoring_profile" {
   name = "app-monitoring-server-profile"
   role = aws_iam_role.monitoring_role.name
 }
+
+# Read-only access to SOAR worker logs for triage (guard refusals,
+# action outcomes) — complements the dashboard CloudWatch panel.
+resource "aws_iam_role_policy" "monitoring_soar_logs" {
+  name = "monitoring-soar-cwlogs-read"
+  role = aws_iam_role.monitoring_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "DescribeLogGroups"
+        Effect = "Allow"
+        Action = ["logs:DescribeLogGroups"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ReadSoarLogStreams"
+        Effect = "Allow"
+        Action = ["logs:DescribeLogStreams", "logs:FilterLogEvents", "logs:StartQuery"]
+        Resource = "arn:aws:logs:eu-central-1:416291743382:log-group:/ecs/cs2-soar:*"
+      },
+      {
+        Sid    = "RetrieveLogQueryResults"
+        Effect = "Allow"
+        Action = ["logs:GetQueryResults", "logs:StopQuery"]
+        Resource = "*"
+      }
+    ]
+  })
+}

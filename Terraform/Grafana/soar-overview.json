@@ -442,7 +442,7 @@
             "uid": "loki-main"
           },
           "editorMode": "code",
-          "expr": "{job=\"tunnel-auth\"}",
+          "expr": "{job=\"vpn-auth\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -479,12 +479,86 @@
             "uid": "loki-main"
           },
           "editorMode": "code",
-          "expr": "{job=\"tunnel-sys\"}",
+          "expr": "{job=\"vpn-sys\"}",
           "queryType": "range",
           "refId": "A"
         }
       ],
       "title": "VPN — System Logs",
+      "type": "logs"
+    },
+        {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-main"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 6,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-main"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"vpn-auth\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "VPN — Authentication Logs",
+      "type": "logs"
+    },
+        {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-main"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 6,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-main"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"vpn-auth\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "VPN — Authentication Logs",
       "type": "logs"
     },
     {
@@ -493,10 +567,10 @@
         "uid": "cloudwatch-soar"
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 48
       },
       "id": 8,
       "options": {
