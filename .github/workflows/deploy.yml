@@ -58,7 +58,7 @@ jobs:
           monitoring_private_ip = "${{ vars.MONITORING_PRIVATE_IP }}"
           EOF
           terraform init -input=false
-          terraform plan -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
+          terraform plan -replace="vpn-management-server" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -input=false -var="tunnel_psk=$TUNNEL_PSK" -out=tfplan -detailed-exitcode && exit 0 \
             || [ $? -eq 2 ]
       - uses: actions/upload-artifact@v4
         with: { name: tfplan, path: Terraform/tfplan, retention-days: 7 }
@@ -79,7 +79,7 @@ jobs:
         run: |
           cd Terraform
           terraform init -input=false
-          terraform apply -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan 
+          terraform apply -replace="vpn-management-server" -var="discord_webhook_url=$DISCORD_WEBHOOK_URL" -auto-approve tfplan 
 
   soar-image:
     name: "5 · SOAR image + rollout"
@@ -103,4 +103,4 @@ jobs:
           aws ecs update-service --cluster cs2-soar --service cs2-soar \
             --force-new-deployment
 
-# -replace="aws_instance.tunnel" -replace="aws_instance.monitoring_server"
+# -replace="aws_instance.tunnel" -replace="aws_instance.monitoring_server" -replace="vpn-management-server"
