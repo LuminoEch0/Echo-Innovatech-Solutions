@@ -112,7 +112,7 @@ def next_rule_number():
         UpdateExpression="ADD n :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
         ReturnValues="UPDATED_NEW")
-    n = int(resp["Attributes"]["n"])
+    n = int(resp["Attributes"]["n"]["N"])
     return 9000 + (n % 99)
 
 def act_block(src_ip, event_id_):
@@ -154,9 +154,12 @@ def handle_event(body):
     if "notify" in actions:
         act_notify(alertname, src_ip); done.append("notify")
     if "block" in actions and src_ip != "unknown":
-        outcome = act_block(src_ip, eid)
-        if outcome != "refused":
-            done.append("block")
+        try:
+            outcome = act_block(src_ip, eid)
+            if outcome != "refused":
+                done.append("block")
+        except Exception:
+            log.exception("block action failed for %s", src_ip)
     if "record" in actions:
         act_record(eid, alertname, src_ip, done or ["none"])
 
