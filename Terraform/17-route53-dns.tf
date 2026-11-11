@@ -33,16 +33,8 @@ resource "aws_route53_record" "prometheus" {
 
 resource "aws_route53_record" "vpn" {
   zone_id = aws_route53_zone.internal.zone_id
-  name    = "vpn.internal.domain"
+  name    = "tunnel.internal.domain"
   type    = "A"
   ttl     = 60
   records = [aws_instance.tunnel.private_ip]
-}
-
-resource "aws_route53_record" "soar_listener_alias" {
-  zone_id = aws_route53_zone.internal.zone_id  
-  name    = "soar.internal.domain"
-  type    = "CNAME"
-  ttl     = 15
-  records = ["soar.soar.internal.domain"]
 }

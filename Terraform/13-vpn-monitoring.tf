@@ -15,6 +15,18 @@ resource "aws_instance" "vpn_server" {
 
   user_data = base64encode(<<-EOF
 #!/bin/bash
+
+#!/bin/bash
+# ── 1 GB swap: OpenVPN PKI init + dnf on a 1 GB instance need
+#    headroom (same pattern as the monitoring server) ──
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 1024M /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 dnf install -y docker
 systemctl start docker
 systemctl enable docker
@@ -54,6 +66,8 @@ gpgcheck=1
 gpgkey=https://rpm.grafana.com/gpg.key
 exclude=*beta*
 REPO
+
+
 dnf install -y alloy
 
 mkdir -p /etc/alloy
@@ -229,7 +243,7 @@ contactPoints:
         type: webhook
         disableResolveMessage: false
         settings:
-          url: "http://soar.internal.domain:8080/webhook"
+          url: "http://soar.soar.internal.domain:8080/webhook"
           httpMethod: POST
           authorization_scheme: "Token"
           authorization_credentials: "${random_password.soar_token.result}"
