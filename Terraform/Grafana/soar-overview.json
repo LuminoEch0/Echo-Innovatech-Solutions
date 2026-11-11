@@ -516,7 +516,7 @@
             "uid": "loki-main"
           },
           "editorMode": "code",
-          "expr": "{job=\"vpn-auth\"} |= \"tunnel\"",
+          "expr": "{job=\"tunnel-auth\"} |= \"tunnel\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -553,7 +553,7 @@
             "uid": "loki-main"
           },
           "editorMode": "code",
-          "expr": "{job=\"vpn-sys\"} |= \"tunnel\"",
+          "expr": "{job=\"tunnel-sys\"} |= \"tunnel\"",
           "queryType": "range",
           "refId": "A"
         }
