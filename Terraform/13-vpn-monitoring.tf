@@ -14,73 +14,74 @@ resource "aws_instance" "vpn_server" {
   key_name                    = aws_key_pair.management_key.key_name
 
   user_data = base64encode(<<-EOF
-              #!/bin/bash
-              dnf install -y docker
-              systemctl start docker
-              systemctl enable docker
+#!/bin/bash
+dnf install -y docker
+systemctl start docker
+systemctl enable docker
 
-              # Fetch public IP for OpenVPN client config generation
-               # Fetch public IP via IMDSv2 (token required on AL2023)
-              TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
-                -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-              PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
-                http://169.254.169.254/latest/meta-data/public-ipv4)
-              OVPN_DATA="ovpn-data"
+# Fetch public IP for OpenVPN client config generation
+# Fetch public IP via IMDSv2 (token required on AL2023)
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4)
+OVPN_DATA="ovpn-data"
 
-              # ── CS2 M2: host log shipping (same new-host pattern as tunnel) ──
-              dnf install -y rsyslog
-              systemctl enable --now rsyslog
+# Create volume and initialize OpenVPN container automatically
+docker volume create $OVPN_DATA
+docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_genconfig -u udp://$PUBLIC_IP
+docker run -v $OVPN_DATA:/etc/openvpn --rm -e "EASYRSA_BATCH=1" kylemanna/openvpn ovpn_initpki nopass
 
-              cat > /etc/yum.repos.d/grafana.repo <<'REPO'
-              [grafana]
-              name=grafana
-              baseurl=https://rpm.grafana.com
-              repo_gpgcheck=1
-              enabled=1
-              gpgcheck=1
-              gpgkey=https://rpm.grafana.com/gpg.key
-              exclude=*beta*
-              REPO
-              dnf install -y alloy
+# Run OpenVPN server container on UDP 1194
+docker run -v $OVPN_DATA:/etc/openvpn -d \
+  --name openvpn \
+  -p 1194:1194/udp \
+  --cap-add=NET_ADMIN \
+  --restart always \
+  kylemanna/openvpn
 
-              mkdir -p /etc/alloy
-              cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
-              // Logs: the internet-exposed SSH surface -> Loki
-              local.file_match "vpn_logs" {
-                path_targets = [
-                  { "__path__" = "/var/log/secure",   "job" = "vpn-auth", "host" = "vpn" },
-                  { "__path__" = "/var/log/messages", "job" = "vpn-sys",  "host" = "vpn" },
-                ]
-              }
+# ── CS2 M2: host log shipping (same new-host pattern as tunnel) ──
+dnf install -y rsyslog
+systemctl enable --now rsyslog
 
-              loki.source.file "vpn_logs" {
-                targets    = local.file_match.vpn_logs.targets
-                forward_to = [loki.write.monitoring.receiver]
-              }
+cat > /etc/yum.repos.d/grafana.repo <<'REPO'
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+exclude=*beta*
+REPO
+dnf install -y alloy
 
-              loki.write "monitoring" {
-                endpoint { url = "http://${aws_instance.monitoring_server.private_ip}:3100/loki/api/v1/push" }
-              }
-              ALLOYCONFIG
+mkdir -p /etc/alloy
+cat > /etc/alloy/config.alloy <<'ALLOYCONFIG'
+// Logs: the internet-exposed SSH surface -> Loki
+local.file_match "vpn_logs" {
+  path_targets = [
+    { "__path__" = "/var/log/secure",   "job" = "vpn-auth", "host" = "vpn" },
+    { "__path__" = "/var/log/messages", "job" = "vpn-sys",  "host" = "vpn" },
+  ]
+}
 
-              mkdir -p /etc/systemd/system/alloy.service.d
-              printf '[Service]\nUser=root\n' > /etc/systemd/system/alloy.service.d/override.conf
-              systemctl daemon-reload
-              systemctl enable --now alloy
+loki.source.file "vpn_logs" {
+  targets    = local.file_match.vpn_logs.targets
+  forward_to = [loki.write.monitoring.receiver]
+}
 
-              # Create volume and initialize OpenVPN container automatically
-              docker volume create $OVPN_DATA
-              docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_genconfig -u udp://$PUBLIC_IP
-              docker run -v $OVPN_DATA:/etc/openvpn --rm -e "EASYRSA_BATCH=1" kylemanna/openvpn ovpn_initpki nopass
+loki.write "monitoring" {
+  endpoint { url = "http://${aws_instance.monitoring_server.private_ip}:3100/loki/api/v1/push" }
+}
+ALLOYCONFIG
 
-              # Run OpenVPN server container on UDP 1194
-              docker run -v $OVPN_DATA:/etc/openvpn -d \
-                --name openvpn \
-                -p 1194:1194/udp \
-                --cap-add=NET_ADMIN \
-                --restart always \
-                kylemanna/openvpn
-              EOF
+# Alloy runs as user "alloy" by default; /var/log/secure is root-only.
+mkdir -p /etc/systemd/system/alloy.service.d
+printf '[Service]\nUser=root\n' > /etc/systemd/system/alloy.service.d/override.conf
+systemctl daemon-reload
+systemctl enable --now alloy
+  EOF
   )
 
   tags = {
