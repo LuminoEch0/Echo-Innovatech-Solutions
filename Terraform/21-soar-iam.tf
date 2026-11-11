@@ -52,7 +52,7 @@ resource "aws_iam_role_policy" "soar_actions" {
       {
         Effect   = "Allow"
         Action   = ["ec2:CreateNetworkAclEntry", "ec2:DeleteNetworkAclEntry", "ec2:DescribeNetworkAcls"]
-        Resource = [aws_network_acl.public_vpn.arn]
+        Resource = ["*"]
       },
       {
         Effect   = "Allow"
