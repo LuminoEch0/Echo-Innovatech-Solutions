@@ -5,6 +5,11 @@
   serial: 1
 
   tasks:
+    - name: Ensure reboot detection utility is installed
+      ansible.builtin.dnf:
+        name: dnf-plugins-core
+        state: present
+
     - name: Update installed packages
       ansible.builtin.dnf:
         name: "*"
@@ -20,4 +25,5 @@
     - name: Reboot when required
       ansible.builtin.reboot:
         reboot_timeout: 600
+        connect_timeout: 10
       when: reboot_check.rc == 1

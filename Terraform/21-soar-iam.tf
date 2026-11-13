@@ -1,7 +1,3 @@
-# ============================================================
-# CS2 M2 — SOAR IAM: task role (actions) + execution role
-# (ECR pull / logs). Least privilege per action.
-# ============================================================
 
 data "aws_iam_policy_document" "ecs_tasks_assume" {
   statement {

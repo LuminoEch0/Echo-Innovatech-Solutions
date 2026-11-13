@@ -255,7 +255,7 @@ policies:
   - orgId: 1
     receiver: Discord-alerts
     group_by: ['alertname']
-    policies:
+    routes:
       - receiver: SOAR-webhook
         object_matchers:
           - ['soar', '=', 'true']

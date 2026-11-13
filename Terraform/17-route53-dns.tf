@@ -1,9 +1,3 @@
-# ============================================================
-# CS2 M2 — Internal DNS: Route53 private hosted zone for cloud
-# service names. On-prem names (*.localnetlab) stay at pfSense;
-# dnsmasq on the tunnel bridges the two zones. Zone split avoids
-# a forward loop: neither zone is a suffix of the other.
-# ============================================================
 
 resource "aws_route53_zone" "internal" {
   name = "internal.domain"

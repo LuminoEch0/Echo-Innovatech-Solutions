@@ -1,13 +1,3 @@
-"""CS2 SOAR worker: listener -> SQS -> rule engine -> actions.
-
-Components (co-located by design, see tech justification 9.3):
-  listener  : Flask, validates Token auth, enqueues Grafana alerts
-  engine    : background thread, SQS long-poll, rule map, dedupe
-  actions   : notify (Discord) / record (DynamoDB) / block (NACL)
-  sweeper   : background thread, expires NACL denies, publishes DlqDepth
-Metrics     : CloudWatch namespace CS2/SOAR (REQ-P2-09)
-Idempotency : conditional DynamoDB put (at-least-once SQS is safe)
-"""
 import json, os, time, threading, logging, hashlib
 from datetime import datetime, timezone
 

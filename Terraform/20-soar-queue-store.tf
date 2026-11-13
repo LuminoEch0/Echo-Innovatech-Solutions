@@ -1,7 +1,3 @@
-# ============================================================
-# CS2 M2 — SOAR buffering + store (REQ-P2-01): SQS with DLQ
-# redrive, DynamoDB audit/state with TTL expiry.
-# ============================================================
 
 resource "random_password" "soar_token" {
   length  = 32

@@ -1,8 +1,3 @@
-# ============================================================
-# CS2 M2 — SOAR compute: ECR repo, ECS Fargate cluster/service
-# (listener + rule engine co-located), Cloud Map private DNS
-# namespace soar.internal.domain (auto A-records per task ENI).
-# ============================================================
 
 resource "aws_security_group" "soar_sg" {
   name        = "soar-task-security-group"
